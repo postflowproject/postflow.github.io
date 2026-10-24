@@ -20,8 +20,27 @@ function findComposer() {
 function insertText(element, text) {
   element.focus();
   element.click();
-  element.replaceChildren(document.createTextNode(text));
-  element.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: text }));
+
+  // Prefer an editor input command so React/Meta's contenteditable editor sees
+  // a user-like edit instead of having its DOM replaced behind its back.
+  let inserted = false;
+  try {
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    selection.removeAllRanges();
+    selection.addRange(range);
+    inserted = document.execCommand("insertText", false, text);
+  } catch {}
+
+  if (!inserted) {
+    element.textContent = text;
+  }
+  element.dispatchEvent(new InputEvent("input", {
+    bubbles: true,
+    inputType: "insertText",
+    data: text
+  }));
   element.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
