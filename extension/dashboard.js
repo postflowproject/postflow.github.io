@@ -4,6 +4,7 @@ const norm = value => { try { const u = new URL(value.trim()); u.search = ""; u.
 const valid = value => { try { const u = new URL(value); return u.protocol === "https:" && /(^|\.)facebook\.com$/i.test(u.hostname) && /^\/groups\/[^/?#]+/.test(u.pathname); } catch { return false; } };
 const unique = values => [...new Set(values.map(v => v.trim()).filter(Boolean))];
 function status(message) { $("status").textContent = message; }
+async function getGroupTab() { const [active] = await chrome.tabs.query({active:true,currentWindow:true}); if(active?.url?.startsWith("https://www.facebook.com/groups/")) return active; const tabs = await chrome.tabs.query({url:"https://www.facebook.com/groups/*"}); return tabs.length ? tabs[tabs.length - 1] : null; }
 function parseGroups() { return unique($("groups").value.split(/\r?\n/)); }
 async function load() {
  const d = await chrome.storage.local.get(["caption","groups","discoveredGroups","completedGroups","currentGroupIndex","captionHistory","dashboardActivity"]);
@@ -39,7 +40,7 @@ $("clearCaption").addEventListener("click",()=>{$("caption").value="";state.capt
 $("saveGroups").addEventListener("click",saveGroups);
 $("refresh").addEventListener("click",()=>load().then(()=>status("Workspace refreshed.")));
 $("scan").addEventListener("click",async()=>{
- const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+ const tab=await getGroupTab();
  if(tab?.url?.startsWith("https://www.facebook.com/groups/")){
   try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_SCAN_GROUPS"});if(r?.warning)return status(r.warning);
    state.groups=unique([...state.groups,...(r?.groups||[])]);$("groups").value=state.groups.join("\n");await saveGroups();status("Scanned current page. Review the list and save.");}
@@ -48,7 +49,7 @@ $("scan").addEventListener("click",async()=>{
 });
 $("fill").addEventListener("click",async()=>{
  const caption=$("caption").value.trim(); if(!caption)return status("Write a caption first.");
- const [tab]=await chrome.tabs.query({active:true,currentWindow:true});
+ const tab=await getGroupTab();
  if(!tab?.id||!tab.url?.startsWith("https://www.facebook.com/groups/"))return status("Open a Facebook Group first.");
  try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_FILL_CAPTION",caption});if(r?.ok){state.caption=caption;await chrome.storage.local.set({caption});status("Caption filled. Add your video and review before publishing.");}else status(r?.message||"Couldn't find a visible composer.");}
  catch{status("Refresh the Facebook Group tab and try again.");}
@@ -61,7 +62,7 @@ $("openNext").addEventListener("click",async()=>{
  await chrome.tabs.create({url:state.groups[i],active:true});status("Opened group "+(i+1)+". Review, attach media, and publish manually.");
 });
 $("mark").addEventListener("click",async()=>{
- const [tab]=await chrome.tabs.query({active:true,currentWindow:true}); if(!tab?.url||!valid(tab.url))return status("Open the Facebook group you just posted in first.");
+ const tab=await getGroupTab(); if(!tab?.url||!valid(tab.url))return status("Open the Facebook group you just posted in first.");
  const url=norm(tab.url); if(!state.groups.some(g=>norm(g)===url))return status("This group is not in the saved list.");
  if(!state.completed.includes(url))state.completed.push(url);
  state.history.unshift({message:"Manually marked posted: "+url,time:Date.now()});state.history=state.history.slice(0,80);
