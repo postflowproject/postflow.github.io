@@ -1,0 +1,111 @@
+[
+  {
+    "id": 1,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||www.facebook.com/api/",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  },
+  {
+    "id": 2,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||upload.facebook.com/",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  },
+  {
+    "id": 3,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||rupload.facebook.com/",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  },
+  {
+    "id": 4,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||up.facebook.com/",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  },
+  {
+    "id": 5,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||vupload",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "requestDomains": ["facebook.com"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  },
+  {
+    "id": 6,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [{
+        "header": "origin",
+        "operation": "set",
+        "value": "https://www.facebook.com"
+      }]
+    },
+    "condition": {
+      "urlFilter": "||www.facebook.com/ajax/ufi/upload",
+      "resourceTypes": ["xmlhttprequest"],
+      "requestMethods": ["post"],
+      "excludedInitiatorDomains": ["facebook.com"]
+    }
+  }
+]

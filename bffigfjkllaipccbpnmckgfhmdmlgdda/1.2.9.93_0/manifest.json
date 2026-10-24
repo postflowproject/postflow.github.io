@@ -1,0 +1,61 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "assets/mgp-icon-128.png",
+         "16": "assets/mgp-icon-16.png",
+         "32": "assets/mgp-icon-32.png",
+         "48": "assets/mgp-icon-48.png"
+      },
+      "default_popup": "index.html"
+   },
+   "author": "Multi Group Poster Inc.",
+   "background": {
+      "service_worker": "mgp-service-worker.js"
+   },
+   "commands": {
+      "_execute_action": {
+         "description": "Open Multi Group Poster",
+         "suggested_key": {
+            "default": "Alt+Shift+M",
+            "mac": "Alt+Shift+M"
+         }
+      }
+   },
+   "content_scripts": [  ],
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self';"
+   },
+   "declarative_net_request": {
+      "rule_resources": [ {
+         "enabled": true,
+         "id": "ruleset_1",
+         "path": "mgp-network-rules.json"
+      } ]
+   },
+   "default_locale": "en",
+   "description": "__MSG_extDescription__",
+   "externally_connectable": {
+      "matches": [ "https://login.multiplegroupposter.com/*", "https://auth.multiplegroupposter.com/*", "https://auth2.multiplegroupposter.com/*" ]
+   },
+   "homepage_url": "https://multiplegroupposter.com",
+   "host_permissions": [ "https://www.facebook.com/*", "https://*.facebook.com/*", "https://login.multiplegroupposter.com/*", "https://auth.multiplegroupposter.com/*", "https://auth2.multiplegroupposter.com/*", "https://server.multiplegroupposter.com/*", "https://subscription.multiplegroupposter.com/*", "https://www.multiplegroupposter.com/*", "https://firestore.googleapis.com/*", "https://firebasestorage.googleapis.com/*" ],
+   "icons": {
+      "128": "assets/mgp-icon-128.png",
+      "16": "assets/mgp-icon-16.png",
+      "32": "assets/mgp-icon-32.png",
+      "48": "assets/mgp-icon-48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAwQa4DHjo4gTpqVxRCCKYV0jCU2xUGYMFTxHX5L2yZFisrymcdqmoiWWBuF5CyeP3jbvhTo10aBC7uqQPQo5y6NWOvaK9E/5jFBX68ARIaxCkFBQI+J2WQq/5JyCRinVDmL6vjInvuO43YnKV6tyt3X7NlCGUsjKENdbJ8U+V+SntHoq+T1pVelu0qt2o9gsetechturaRtVLLr8WiOu/ZJ42uf+mWylKBUooEwh0NmvR2cP9NNAL00Cfl0owFhPGkBkqxC8JHmWF0mUNUlUpat6oAcpdbAYwiKT69D4t8RyjtPLdRsWRSd528eigUDZ1l1wKE0YdmYmx1emCQcXZ6wIDAQAB",
+   "manifest_version": 3,
+   "name": "__MSG_extName__",
+   "permissions": [ "storage", "unlimitedStorage", "cookies", "tabs", "scripting", "alarms", "idle", "power", "declarativeNetRequestWithHostAccess" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.2.9.93",
+   "web_accessible_resources": [ {
+      "matches": [ "https://*.facebook.com/*" ],
+      "resources": [ "mgp-selectors.json", "mgp-engine.html" ]
+   }, {
+      "matches": [ "https://*.facebook.com/*" ],
+      "resources": [ "index.html" ]
+   } ]
+}

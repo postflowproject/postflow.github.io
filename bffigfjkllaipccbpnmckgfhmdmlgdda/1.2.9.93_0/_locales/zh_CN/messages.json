@@ -1,0 +1,58 @@
+{
+   "commentsSendingBadge": {
+      "description": "Toolbar tooltip while a delayed comment is being sent (v2026-09-24).",
+      "message": "正在发送评论…"
+   },
+   "commentsWaitingBadge": {
+      "description": "Toolbar tooltip while delayed comments wait (v2026-09-24).",
+      "message": "等待中的评论：$COUNT$ · 下一条 $TIME$",
+      "placeholders": {
+         "count": {
+            "content": "$1",
+            "example": "3"
+         },
+         "time": {
+            "content": "$2",
+            "example": "19:47"
+         }
+      }
+   },
+   "extDescription": {
+      "description": "Short description shown in Chrome Web Store and the install dialog.",
+      "message": "一键批量发布到多个 Facebook 群组。定时发帖、添加图片或视频，并使用 Spintax 文案变体。"
+   },
+   "extName": {
+      "description": "Extension name shown in Chrome Web Store and installed extensions list.",
+      "message": "Multigroup Poster – Facebook 群组自动群发与定时发帖工具"
+   },
+   "missedPostsBadge": {
+      "description": "Toolbar tooltip when one-time scheduled posts were missed because the computer was asleep or off (v2026-10-07).",
+      "message": "错过的定时帖子：$COUNT$ — 打开队列即可发布",
+      "placeholders": {
+         "count": {
+            "content": "$1",
+            "example": "2"
+         }
+      }
+   },
+   "shareAttribution": {
+      "description": "Attribution line appended to shares on the free plan. No URL scheme — see withShareAttribution().",
+      "message": "通过 Multi Group Poster 分享"
+   },
+   "shareBtnAria": {
+      "description": "Accessible name / tooltip for that button.",
+      "message": "使用 Multi Group Poster 将这条帖子分享到你的 Facebook 群组"
+   },
+   "shareBtnLabel": {
+      "description": "Label on the button injected next to Facebook's Share control.",
+      "message": "分享到群组"
+   },
+   "shareSheetLoading": {
+      "description": "Shown while the share sheet is being prepared.",
+      "message": "正在准备这条帖子…"
+   },
+   "signedInOpenMgp": {
+      "description": "Shown on the sign-in page after Google sign-in when Chrome could not open the popup by itself.",
+      "message": "已登录。现在打开 Multi Group Poster：点击 Chrome 工具栏中的拼图图标，然后点击 Multi Group Poster。"
+   }
+}

@@ -1,0 +1,12 @@
+{
+  "postSelector": "div[role='feed'] > div > div",
+  "contentSelectors": [
+    "div[data-ad-preview='message']",
+    "div[dir='auto']",
+    "div[data-visualcompletion='ignore-dynamic']"
+  ],
+  "buttonClassName": "log-button",
+  "composerSelector": "div[role='textbox'][contenteditable='true']",
+  "postButtonSelector": "div[aria-label='Post']",
+  "composerTriggerSelector": "div[class*='xi81zsa'] span:contains(\"What's on your mind\")"
+}

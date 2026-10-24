@@ -1,0 +1,58 @@
+{
+   "commentsSendingBadge": {
+      "description": "Toolbar tooltip while a delayed comment is being sent (v2026-09-24).",
+      "message": "Enviando un comentario…"
+   },
+   "commentsWaitingBadge": {
+      "description": "Toolbar tooltip while delayed comments wait (v2026-09-24).",
+      "message": "Comentarios en espera: $COUNT$ · el próximo a las $TIME$",
+      "placeholders": {
+         "count": {
+            "content": "$1",
+            "example": "3"
+         },
+         "time": {
+            "content": "$2",
+            "example": "19:47"
+         }
+      }
+   },
+   "extDescription": {
+      "description": "Short description shown in Chrome Web Store and the install dialog.",
+      "message": "Publica en varios grupos de Facebook con un clic. Programa, añade fotos o video y usa variaciones de texto Spintax."
+   },
+   "extName": {
+      "description": "Extension name shown in Chrome Web Store and installed extensions list.",
+      "message": "Multigroup Poster – Autopublicador y programador de grupos de Facebook"
+   },
+   "missedPostsBadge": {
+      "description": "Toolbar tooltip when one-time scheduled posts were missed because the computer was asleep or off (v2026-10-07).",
+      "message": "Publicaciones programadas perdidas: $COUNT$ — abre la Cola para publicarlas",
+      "placeholders": {
+         "count": {
+            "content": "$1",
+            "example": "2"
+         }
+      }
+   },
+   "shareAttribution": {
+      "description": "Attribution line appended to shares on the free plan. No URL scheme — see withShareAttribution().",
+      "message": "Compartido con Multi Group Poster"
+   },
+   "shareBtnAria": {
+      "description": "Accessible name / tooltip for that button.",
+      "message": "Comparte esta publicación en tus grupos de Facebook con Multi Group Poster"
+   },
+   "shareBtnLabel": {
+      "description": "Label on the button injected next to Facebook's Share control.",
+      "message": "Compartir en grupos"
+   },
+   "shareSheetLoading": {
+      "description": "Shown while the share sheet is being prepared.",
+      "message": "Preparando esta publicación…"
+   },
+   "signedInOpenMgp": {
+      "description": "Shown on the sign-in page after Google sign-in when Chrome could not open the popup by itself.",
+      "message": "Ya iniciaste sesión. Ahora abre Multi Group Poster: haz clic en el icono de la pieza de rompecabezas de la barra de Chrome y luego en Multi Group Poster."
+   }
+}

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/png" href="/assets/logo.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Multi Group Poster</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <!--
+      🔴 media="print" is deliberate and load-bearing — do not "fix" it.
+
+      A plain <link rel="stylesheet"> to a third party in <head> is
+      RENDER-BLOCKING: nothing paints until that request finishes. This page is
+      both the toolbar popup and the Share-to-groups sheet, so on a slow network
+      — or anywhere fonts.googleapis.com is unreachable, which is a whole country
+      in some cases — the user clicked and stared at nothing until the request
+      timed out. That is the best explanation we have for the "sometimes it takes
+      forever" half of the report that the permalink resolver does not cover.
+
+      A non-matching media query still fetches the sheet, at low priority, and
+      blocks nothing. src/main.tsx flips it to `all` after the first paint, so
+      Inter still arrives — it just no longer decides WHEN the UI appears. The
+      CSS fallback is `system-ui`, and there is no @font-face anywhere in the
+      built CSS, so a request that never lands costs nothing but Inter itself.
+
+      ⛔ Not an inline onload handler: the extension CSP is script-src 'self',
+      which blocks inline handlers outright.
+    -->
+    <link id="mgp-font" media="print"
+          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap"
+          rel="stylesheet" />
+    <script src="/mgp-log-filter.js"></script>
+    <script src="/mgp-bootstrap.js"></script>
+    <!-- diagnostic: shows error info on screen if React fails to mount -->
+    <script src="/mgp-diagnostic.js"></script>
+    <script type="module" crossorigin src="/assets/index-jZBf3Fmp.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-CZdw5Ery.css">
+  </head>
+
+  <body>
+    <div id="root"></div>
+  </body>
+</html>

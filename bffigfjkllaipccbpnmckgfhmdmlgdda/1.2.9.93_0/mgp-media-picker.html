@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Upload media</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    /* ─── Reset ─── */
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(180deg, #F8FAFC 0%, #EEF2FF 100%);
+      color: #0F172A;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 8px 12px;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    /* ─── Card ─── */
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow:
+        0 18px 48px -16px rgba(15, 23, 42, 0.18),
+        0 0 0 1px rgba(241, 245, 249, 1);
+      overflow: hidden;
+      animation: pop-in 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes pop-in {
+      from { opacity: 0; transform: translateY(8px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0)  scale(1); }
+    }
+
+    /* ─── Header ─── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 18px 2px;
+    }
+    .header-icon {
+      width: 34px; height: 34px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #4F46E5;
+      flex-shrink: 0;
+    }
+    .header-icon svg { width: 18px; height: 18px; }
+    .header h1 {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #0F172A;
+    }
+    .header p {
+      margin: 1px 0 0;
+      font-size: 11px;
+      color: #64748B;
+    }
+
+    /* ─── Body ─── */
+    .body { padding: 10px 18px 0; }
+
+    /* ─── Dropzone ─── */
+    .dropzone {
+      position: relative;
+      border: 2px dashed #CBD5E1;
+      background: #F8FAFC;
+      border-radius: 12px;
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      cursor: pointer;
+      transition: all 0.18s ease;
+      text-align: center;
+    }
+    .dropzone:hover {
+      border-color: #818CF8;
+      background: #EEF2FF;
+    }
+    .dropzone.dragover {
+      border-color: #4F46E5;
+      background: #E0E7FF;
+      transform: scale(1.005);
+    }
+    .dropzone input[type="file"] {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      opacity: 0; cursor: pointer;
+    }
+    .dropzone-icon {
+      width: 42px; height: 42px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%);
+      display: flex; align-items: center; justify-content: center;
+      color: #4F46E5;
+      box-shadow: 0 3px 10px -2px rgba(79, 70, 229, 0.18);
+      margin-bottom: 2px;
+    }
+    .dropzone-icon svg { width: 22px; height: 22px; }
+    .dropzone-title {
+      font-size: 13px;
+      font-weight: 600;
+      color: #334155;
+      margin: 0;
+    }
+    .dropzone-hint {
+      font-size: 11px;
+      color: #94A3B8;
+      margin: 0;
+    }
+    .dropzone-formats {
+      font-size: 9.5px;
+      font-weight: 600;
+      color: #94A3B8;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      margin-top: 1px;
+    }
+
+    /* ─── File list ─── */
+    .file-list { margin: 14px 0 0; }
+    .file-list:empty { display: none; }
+    .file-row {
+      display: flex; align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      margin-bottom: 6px;
+      font-size: 13px;
+      color: #334155;
+    }
+    .file-row .file-icon {
+      width: 28px; height: 28px;
+      border-radius: 7px;
+      background: #EEF2FF;
+      color: #4F46E5;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .file-row .file-name {
+      flex: 1; min-width: 0;
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      font-weight: 500;
+    }
+    .file-row .file-size {
+      font-size: 11px; color: #94A3B8;
+      flex-shrink: 0;
+    }
+    .file-row .rm {
+      background: none; border: none;
+      width: 26px; height: 26px;
+      border-radius: 50%;
+      color: #94A3B8;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    .file-row .rm:hover { background: #FEE2E2; color: #DC2626; }
+
+    /* ─── Status / loader ─── */
+    .status {
+      min-height: 18px;
+      font-size: 12px;
+      color: #64748B;
+      margin: 8px 0;
+      text-align: center;
+    }
+    .status.success { color: #059669; }
+    .status.error { color: #DC2626; }
+    .loader {
+      display: none;
+      align-items: center; justify-content: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #4F46E5;
+      margin: 4px 0 8px;
+    }
+    .loader.visible { display: flex; }
+    .spinner {
+      width: 14px; height: 14px;
+      border: 2px solid #C7D2FE;
+      border-top-color: #4F46E5;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ─── Footer / buttons ─── */
+    .footer {
+      display: flex; gap: 8px;
+      padding: 10px 18px 14px;
+      margin-top: 8px;
+    }
+    button {
+      font-family: inherit;
+      font-size: 12.5px;
+      font-weight: 600;
+      padding: 9px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.1px;
+    }
+    button:disabled { opacity: 0.55; cursor: not-allowed; }
+
+    /* ─── Unsupported-file dialog ───
+       A real modal, not the thin status line: a file that cannot be posted has
+       to be impossible to miss, because the alternative is the user finding out
+       when their campaign comes back empty. Names every rejected file. */
+    .fmt-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(15, 23, 42, 0.55);
+      backdrop-filter: blur(2px);
+      align-items: center; justify-content: center;
+      padding: 20px;
+      z-index: 50;
+    }
+    .fmt-overlay.visible { display: flex; }
+    .fmt-dialog {
+      background: #FFFFFF;
+      border-radius: 16px;
+      box-shadow: 0 24px 48px -12px rgba(15, 23, 42, 0.35);
+      max-width: 380px; width: 100%;
+      /* The picker window is opened at 420x380 (mgp-service-worker.js), so the
+         budget here is ~340px, not a comfortable desktop viewport. */
+      max-height: 100%;
+      display: flex; flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+    .fmt-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 16px 18px 10px;
+      flex: 0 0 auto;
+    }
+    .fmt-badge {
+      width: 34px; height: 34px; flex: 0 0 34px;
+      border-radius: 10px;
+      background: #FEF2F2; color: #DC2626;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700;
+    }
+    .fmt-head h2 { font-size: 14.5px; font-weight: 700; margin: 0; }
+    .fmt-head p  { font-size: 11.5px; color: #64748B; margin: 2px 0 0; }
+    .fmt-list {
+      /* flex: 1 1 auto + min-height: 0 is the whole fix. A flex child defaults
+         to min-height:auto, which refuses to shrink below its content — so the
+         list never scrolled, the dialog grew to its full content height, and at
+         the real 420x380 window size the "Got it" button was pushed OUTSIDE the
+         window with no way to dismiss the popup. Measured, not theorised. */
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      padding: 4px 18px 6px;
+      margin: 0; list-style: none;
+    }
+    .fmt-item {
+      display: flex; gap: 8px; align-items: flex-start;
+      padding: 8px 10px; margin-bottom: 6px;
+      background: #F8FAFC;
+      border: 1px solid #E2E8F0;
+      border-radius: 10px;
+      font-size: 11.5px;
+    }
+    .fmt-item .fmt-mark { flex: 0 0 auto; font-size: 12px; line-height: 1.4; }
+    .fmt-item.warn { background: #FFFBEB; border-color: #FDE68A; }
+    .fmt-name {
+      font-weight: 600; color: #0F172A;
+      word-break: break-all;
+    }
+    .fmt-why { color: #64748B; margin-top: 1px; }
+    .fmt-tip {
+      margin: 2px 18px 0;
+      padding: 9px 11px;
+      background: #EEF2FF;
+      border-radius: 10px;
+      font-size: 11.5px; color: #3730A3; line-height: 1.5;
+      flex: 0 0 auto;
+    }
+    .fmt-foot { padding: 12px 18px 16px; flex: 0 0 auto; }
+    #fmtOkBtn {
+      width: 100%;
+      background: #4F46E5; color: #FFFFFF; border: none;
+      box-shadow: 0 8px 16px -4px rgba(79, 70, 229, 0.35);
+    }
+
+    #uploadBtn {
+      flex: 1;
+      background: #4F46E5;
+      color: #FFFFFF;
+      border: none;
+      box-shadow: 0 8px 16px -4px rgba(79, 70, 229, 0.35);
+    }
+    #uploadBtn:hover:not(:disabled) {
+      background: #4338CA;
+      box-shadow: 0 10px 20px -4px rgba(79, 70, 229, 0.45);
+      transform: translateY(-1px);
+    }
+    #uploadBtn:active:not(:disabled) { transform: translateY(0); }
+
+    #closeBtn {
+      background: #FFFFFF;
+      color: #475569;
+      border: 1px solid #CBD5E1;
+    }
+    #closeBtn:hover:not(:disabled) {
+      background: #F8FAFC;
+      border-color: #94A3B8;
+      color: #0F172A;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-icon">
+        <!-- Phosphor-style UploadSimple duotone -->
+        <svg width="22" height="22" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+          <path d="M216,144v64a8,8,0,0,1-8,8H48a8,8,0,0,1-8-8V144a8,8,0,0,1,8-8H88a8,8,0,0,1,0,16H56v48H200V152H168a8,8,0,0,1,0-16h40A8,8,0,0,1,216,144Z" opacity="0.3"/>
+          <path d="M93.66,77.66,120,51.31V144a8,8,0,0,0,16,0V51.31l26.34,26.35a8,8,0,0,0,11.32-11.32l-40-40a8,8,0,0,0-11.32,0l-40,40A8,8,0,0,0,93.66,77.66ZM216,136H168a8,8,0,0,0,0,16h32v48H56V152H88a8,8,0,0,0,0-16H40a8,8,0,0,0-8,8v64a8,8,0,0,0,8,8H216a8,8,0,0,0,8-8V144A8,8,0,0,0,216,136Z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 data-i18n="headerTitle">Upload media</h1>
+        <p data-i18n="headerSub">Add photos or video to your post</p>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+      <!-- Dropzone -->
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <input id="fileInput" type="file" accept="image/*,video/*" multiple>
+        <div class="dropzone-icon">
+          <!-- CloudArrowUp duotone -->
+          <svg width="28" height="28" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg" fill="currentColor">
+            <path d="M248,128a56.07,56.07,0,0,1-56,56H160V128l-22.34,22.34a8,8,0,0,1-11.32-11.32l36-36a8,8,0,0,1,11.32,0l36,36a8,8,0,0,1-11.32,11.32L176,128v56h16a40,40,0,0,0,2.8-79.91A8,8,0,0,1,188,98.78,72,72,0,0,0,52.07,84.85,8.07,8.07,0,0,1,46,89.18,56,56,0,0,0,64,200H96V128l-22.34,22.34a8,8,0,0,1-11.32-11.32l36-36a8,8,0,0,1,11.32,0l36,36a8,8,0,0,1-11.32,11.32L112,128v72H64a72,72,0,0,1-3.34-143.92,88,88,0,0,1,166,18.36A56.08,56.08,0,0,1,248,128Z" opacity="0.3"/>
+            <path d="M160,184a8,8,0,0,1-8-8V148.31l-10.34,10.35a8,8,0,0,1-11.32-11.32l24-24a8,8,0,0,1,11.32,0l24,24a8,8,0,0,1-11.32,11.32L168,148.31V176A8,8,0,0,1,160,184Z M240,128a48.05,48.05,0,0,0-48-48,8,8,0,0,1-7.94-7,72,72,0,0,0-143.13.85,7.94,7.94,0,0,1-6.39,7.07A48,48,0,0,0,64,176a8,8,0,0,1,0,16,64,64,0,0,1-12.85-126.55,88,88,0,0,1,173.71-1A64.08,64.08,0,0,1,240,128Z"/>
+          </svg>
+        </div>
+        <p class="dropzone-title" data-i18n="dropTitle">Click to browse or drag media here</p>
+        <p class="dropzone-hint" data-i18n="dropHint">Photos and video. You can add several files.</p>
+        <p class="dropzone-formats">JPG · PNG · GIF · MP4 · MOV</p>
+      </label>
+
+      <!-- Selected files list -->
+      <div id="fileList" class="file-list"></div>
+
+      <!-- Status -->
+      <div id="statusMsg" class="status"></div>
+      <div id="loader" class="loader">
+        <div class="spinner"></div>
+        <span data-i18n="uploading">Uploading…</span>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <button id="closeBtn" type="button" data-i18n="close">Close</button>
+      <button id="uploadBtn" type="button" data-i18n="upload">Upload</button>
+    </div>
+  </div>
+
+  <div class="fmt-overlay" id="fmtOverlay" role="dialog" aria-modal="true" aria-labelledby="fmtTitle">
+    <div class="fmt-dialog">
+      <div class="fmt-head">
+        <div class="fmt-badge">!</div>
+        <div>
+          <h2 id="fmtTitle" data-i18n="fmtTitleDefault">Some files can't be posted</h2>
+          <p id="fmtSubtitle" data-i18n="fmtSubDefault">Facebook won't accept these as they are.</p>
+        </div>
+      </div>
+      <ul class="fmt-list" id="fmtList"></ul>
+      <div class="fmt-tip" id="fmtTip"></div>
+      <div class="fmt-foot">
+        <button id="fmtOkBtn" type="button" data-i18n="gotIt">Got it</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="mgp-media-picker-i18n.js"></script>
+  <script src="mgp-media-picker.js"></script>
+</body>
+</html>

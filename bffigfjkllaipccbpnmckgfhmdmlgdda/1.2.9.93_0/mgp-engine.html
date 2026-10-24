@@ -1,0 +1,1295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Multi Group Poster — Engine</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* ═══════════════════════════════════════════════════════════════
+       Multi Group Poster — Light-mode Indigo SaaS Command Center.
+       Redesigned 2026-04-30 from a dark-terminal aesthetic to a clean
+       analytics dashboard that matches the popup's premium identity.
+       Branding rules:
+         • No red except for actual bugs/errors
+         • Indigo for active / running / post related
+         • Amber for warnings / priority notes
+         • Emerald for success states
+         • Phosphor-style SVG icons inline (no font dependency)
+       ═══════════════════════════════════════════════════════════════ */
+
+    :root {
+      /* Light canvas — slightly darker than slate-50 so white cards pop more
+         (per design feedback 2026-04-30: "feels top-heavy, cards need more
+         separation"). Page sits at slate-100, cards stay pure white. */
+      --bg:         #f1f5f9;   /* slate-100 — main page */
+      --bg-elev:    #ffffff;   /* card-default */
+      --surface:    #ffffff;
+      --surface-2:  #f1f5f9;   /* slate-100 — hover */
+      --surface-3:  #e2e8f0;   /* slate-200 */
+
+      /* Borders — default slate, plus an indigo-tinted variant used on
+         premium cards (.metric-card, .hero, .log-section) for brand-aligned
+         hairlines without looking like a coloured outline. */
+      --border:     #e2e8f0;   /* slate-200 */
+      --border-2:   #cbd5e1;   /* slate-300 */
+      --border-3:   #94a3b8;   /* slate-400 */
+      --border-card: rgb(79 70 229 / 0.08);  /* indigo-500 @ 8% — subtle */
+
+      /* Text — slate scale */
+      --text:       #0f172a;   /* slate-900 — primary */
+      --text-2:     #334155;   /* slate-700 */
+      --text-3:     #64748b;   /* slate-500 */
+      --text-4:     #94a3b8;   /* slate-400 */
+
+      /* Brand — Indigo replaces info-blue */
+      --brand:      #4f46e5;   /* indigo-600 */
+      --brand-2:    #4338ca;   /* indigo-700 */
+      --brand-light:#eef2ff;   /* indigo-50 */
+      --brand-glow: rgb(79 70 229 / 0.12);
+      --brand-tint: rgb(79 70 229 / 0.06);
+
+      /* Status palette — Indigo for active, Emerald for success,
+         Amber for warnings. Red ONLY for hard errors / cooldown. */
+      --info:       #4f46e5;   /* indigo-600 — used for "active/posting" */
+      --info-dim:   rgb(79 70 229 / 0.10);
+      --ok:         #10b981;   /* emerald-500 */
+      --ok-glow:    rgb(16 185 129 / 0.15);
+      --ok-dim:     rgb(16 185 129 / 0.08);
+      --warn:       #f59e0b;   /* amber-500 */
+      --warn-glow:  rgb(245 158 11 / 0.18);
+      --warn-dim:   rgb(245 158 11 / 0.10);
+      --warn-text:  #92400e;   /* amber-800 */
+      --error:      #ef4444;   /* rose-500 — only real bugs */
+      --error-glow: rgb(239 68 68 / 0.15);
+      --error-dim:  rgb(239 68 68 / 0.08);
+
+      /* Type */
+      --font-sans:  'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      --font-mono:  'JetBrains Mono', 'SF Mono', Menlo, monospace;
+
+      /* Radius */
+      --r-sm:       6px;
+      --r:          12px;
+      --r-lg:       16px;
+      --r-xl:       20px;
+
+      /* Soft elevation matching the popup's premium card */
+      --shadow-sm:  0 1px 2px rgb(15 23 42 / 0.04);
+      --shadow:     0 1px 3px rgb(15 23 42 / 0.05), 0 1px 2px rgb(15 23 42 / 0.03);
+      --shadow-md:  0 4px 12px rgb(15 23 42 / 0.06), 0 2px 4px rgb(15 23 42 / 0.04);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.5;
+      font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11', 'ss01';
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    body {
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    ::selection { background: var(--brand-light); color: var(--brand-2); }
+
+    /* ═════════════════ BAN BANNER ═════════════════════════════════════
+       Cooldown is the ONE place where rose/red is appropriate — it's an
+       actual blocker. Hidden by default; surfaces only when the engine
+       has armed a Facebook backoff. */
+    .ban-banner {
+      display: none;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 28px;
+      background: var(--error-dim);
+      color: #991b1b;
+      border-bottom: 1px solid rgb(239 68 68 / 0.20);
+      font-size: 13px;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+    .ban-banner.visible { display: flex; }
+    .ban-banner-icon {
+      width: 22px; height: 22px;
+      background: var(--error);
+      color: #fff;
+      border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 800;
+      flex-shrink: 0;
+    }
+    .ban-banner-title {
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      margin-right: 6px;
+    }
+    .ban-banner-body { font-weight: 500; opacity: 0.95; }
+    .ban-banner-countdown {
+      margin-left: auto;
+      font-family: var(--font-mono);
+      font-weight: 700;
+      padding: 4px 12px;
+      background: rgb(239 68 68 / 0.15);
+      border-radius: 6px;
+      font-size: 12px;
+    }
+    .ban-banner-clear {
+      margin-left: 10px;
+      font: inherit;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 6px 14px;
+      background: #fff;
+      color: var(--error);
+      border: 1px solid rgb(239 68 68 / 0.30);
+      border-radius: 6px;
+      cursor: pointer;
+      transition: opacity .15s ease;
+    }
+    .ban-banner-clear:hover { opacity: 0.85; }
+
+    /* ═════════════════ KEEP-OPEN WARNING STRIP ══════════════════════
+       Soft amber notice — present but not alarming. Indigo SaaS feel. */
+    .warn-strip {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 9px 28px;
+      background: var(--warn-dim);
+      border-bottom: 1px solid rgb(245 158 11 / 0.20);
+      flex-shrink: 0;
+      color: var(--warn-text);
+      font-size: 12.5px;
+      font-weight: 500;
+    }
+    .warn-strip svg {
+      width: 16px; height: 16px;
+      color: var(--warn);
+      flex-shrink: 0;
+    }
+    .warn-strip strong {
+      font-weight: 700;
+      letter-spacing: -0.005em;
+    }
+
+    /* ═════════════════ TOP BAR ═════════════════════════════════════ */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 28px;
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 16px;
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 15px;
+      font-weight: 800;
+      color: var(--brand);
+      letter-spacing: -0.015em;
+    }
+    .brand-mark {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+      border-radius: 9px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      box-shadow: 0 4px 10px rgb(79 70 229 / 0.25);
+    }
+    .brand-mark svg { width: 18px; height: 18px; fill: #fff; }
+    .brand-tag {
+      font-size: 10.5px;
+      color: var(--text-3);
+      font-weight: 600;
+      padding: 3px 8px;
+      background: var(--surface-2);
+      border-radius: 999px;
+      font-family: var(--font-mono);
+      letter-spacing: 0;
+      margin-left: 4px;
+    }
+
+    .header-right { display: flex; align-items: center; gap: 12px; }
+
+    .conn-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #047857;       /* emerald-700 */
+      background: var(--ok-dim);
+      border: 1px solid rgb(16 185 129 / 0.25);
+      border-radius: 999px;
+      padding: 6px 14px;
+      letter-spacing: 0.02em;
+    }
+    .conn-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow: 0 0 0 3px var(--ok-dim);
+      animation: pulse-soft 2s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-soft {
+      0%, 100% { opacity: 1; }
+      50%      { opacity: 0.5; }
+    }
+
+    /* ═════════════════ SCROLL CONTAINER ══════════════════════════ */
+    .page {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 28px 24px;
+    }
+    .page::-webkit-scrollbar { width: 6px; }
+    .page::-webkit-scrollbar-thumb {
+      background: var(--border-2);
+      border-radius: 3px;
+    }
+    .page::-webkit-scrollbar-thumb:hover { background: var(--border-3); }
+
+    /* ═════════════════ HERO — North Star "● ACTIVE" ═════════════════
+       White card with subtle indigo accent. The status dot stays Emerald
+       because "engine running" is genuinely a positive state. */
+    .hero {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 24px;
+      padding: 28px 32px;
+      background: #fff;
+      border: 1px solid var(--border-card);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+    }
+    .hero::before {
+      /* Gentle indigo accent radial — feels brand-aligned without alarming. */
+      content: '';
+      position: absolute;
+      top: -40%; right: -10%;
+      width: 360px; height: 360px;
+      background: radial-gradient(circle, var(--brand-tint), transparent 60%);
+      pointer-events: none;
+    }
+    .hero-left { position: relative; z-index: 1; min-width: 0; }
+    .hero-kicker {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 12px;
+    }
+    .hero-status {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 12px;
+    }
+    .hero-status-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      background: var(--ok);
+      box-shadow:
+        0 0 0 5px var(--ok-dim),
+        0 0 0 11px rgb(16 185 129 / 0.04),
+        0 0 16px var(--ok-glow);
+      animation: pulse-strong 2.4s ease-in-out infinite;
+      flex-shrink: 0;
+    }
+    @keyframes pulse-strong {
+      0%, 100% {
+        box-shadow: 0 0 0 5px var(--ok-dim), 0 0 0 11px rgb(16 185 129 / 0.04), 0 0 16px var(--ok-glow);
+      }
+      50% {
+        box-shadow: 0 0 0 8px rgb(16 185 129 / 0.12), 0 0 0 17px rgb(16 185 129 / 0), 0 0 24px var(--ok);
+      }
+    }
+    .hero-headline {
+      /* 2026-04-30 polish: dropped from 56px to 48px (~15% reduction) so
+         the hero doesn't dominate the page — the metric cards below it
+         deserve their share of attention. */
+      font-size: 48px;
+      font-weight: 800;
+      line-height: 1;
+      letter-spacing: -0.035em;
+      color: var(--text);
+    }
+    .hero-headline .muted { color: var(--ok); }
+    .hero-sub {
+      /* 2026-04-30 polish: more line-height for breathing room. */
+      font-size: 14px;
+      color: var(--text-3);
+      font-weight: 500;
+      letter-spacing: -0.005em;
+      margin-bottom: 24px;
+      max-width: 560px;
+      line-height: 1.75;
+    }
+
+    .hero-session {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      max-width: 460px;
+      box-shadow: var(--shadow-sm);
+    }
+    .hero-avatar {
+      width: 38px; height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--brand) 0%, var(--brand-2) 100%);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700; color: #fff;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .hero-avatar img {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      border-radius: inherit;
+    }
+    .hero-session-meta { min-width: 0; flex: 1; }
+    .hero-session-name {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.005em;
+      margin-bottom: 2px;
+    }
+    .hero-session-sub {
+      font-size: 11.5px;
+      color: var(--text-3);
+      font-family: var(--font-mono);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .hero-refresh {
+      flex-shrink: 0;
+      background: #fff;
+      border: 1px solid var(--border-2);
+      color: var(--text-2);
+      padding: 7px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      letter-spacing: 0.02em;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 150ms;
+    }
+    .hero-refresh:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+      background: var(--brand-light);
+    }
+
+    .hero-right {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      align-items: flex-end;
+      position: relative;
+      z-index: 1;
+      gap: 18px;
+    }
+    .hero-meta-block { text-align: right; }
+    .hero-meta-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 6px;
+    }
+    .hero-meta-value {
+      font-size: 26px;
+      font-weight: 700;
+      font-family: var(--font-mono);
+      color: var(--text);
+      letter-spacing: -0.01em;
+      line-height: 1;
+    }
+    .hero-meta-sub {
+      font-size: 11.5px;
+      color: var(--text-3);
+      margin-top: 5px;
+      font-weight: 500;
+    }
+
+    /* ═════════════════ HEALTH METRICS ROW ═════════════════════════
+       White cards with shadow + Phosphor Duotone icons (top-right pill).
+       Indigo numbers — that's the SaaS premium feel.
+       Cards use accent classes (.is-warn / .is-ok / .is-error) for the
+       subtle top-edge stripe; keep .is-error for real errors only. */
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .metric-card {
+      background: #fff;
+      /* 2026-04-30 polish: indigo-tinted hairline (border-card var)
+         instead of plain slate, so the white cards feel brand-aligned. */
+      border: 1px solid var(--border-card);
+      border-radius: var(--r-lg);
+      padding: 22px 22px 20px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: box-shadow 160ms, transform 160ms;
+    }
+    .metric-card:hover {
+      box-shadow: var(--shadow-md);
+      transform: translateY(-1px);
+    }
+    .metric-card::after {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: currentColor;
+      opacity: 0;
+      transition: opacity 200ms;
+    }
+    .metric-card.is-warn  { color: var(--warn); }
+    .metric-card.is-error { color: var(--error); }
+    .metric-card.is-ok    { color: var(--ok); }
+    .metric-card.is-warn::after,
+    .metric-card.is-error::after,
+    .metric-card.is-ok::after { opacity: 1; }
+
+    .metric-icon {
+      position: absolute;
+      top: 16px; right: 16px;
+      width: 32px; height: 32px;
+      border-radius: 999px;
+      background: var(--brand-light);
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .metric-icon svg { width: 16px; height: 16px; }
+    .metric-card.is-warn .metric-icon  { background: var(--warn-dim);  color: var(--warn); }
+    .metric-card.is-ok .metric-icon    { background: var(--ok-dim);    color: var(--ok); }
+    .metric-card.is-error .metric-icon { background: var(--error-dim); color: var(--error); }
+
+    .metric-label {
+      font-size: 10.5px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 12px;
+    }
+    .metric-value {
+      font-size: 32px;
+      font-weight: 800;
+      font-family: var(--font-sans);
+      letter-spacing: -0.025em;
+      line-height: 1.05;
+      color: var(--brand);
+      font-variant-numeric: tabular-nums;
+      transition: color 200ms;
+    }
+    /* worker_safety.js status hooks: keep the contract but route to soft palette. */
+    .metric-card.is-warn  .metric-value,
+    .dash-card-value.warn  { color: var(--warn) !important; }
+    .metric-card.is-error .metric-value,
+    .dash-card-value.error { color: var(--error) !important; }
+    .metric-card.is-ok    .metric-value,
+    .dash-card-value.ok    { color: var(--ok) !important; }
+    .metric-sub {
+      font-size: 11.5px;
+      color: var(--text-3);
+      margin-top: 6px;
+      font-weight: 500;
+    }
+
+    /* ═════════════════ SYSTEM ROW (compact stats + badges) ══════════
+       White surface with pill badges for engine status. */
+    .system-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 14px;
+      padding: 14px 22px;
+      background: #fff;
+      border: 1px solid var(--border-card);
+      border-radius: var(--r);
+      box-shadow: var(--shadow-sm);
+    }
+    .system-stats {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+    /* Pill-shaped badges — flatter than the original draft (no border ring,
+       lighter padding, tinted backgrounds only). Each pill carries a tiny
+       Phosphor Duotone glyph for visual differentiation, not just a dot. */
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px 3px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.4;
+    }
+    .pill svg {
+      width: 12px; height: 12px;
+      flex-shrink: 0;
+    }
+    .pill-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .pill.pill-running {
+      background: var(--ok-dim);
+      color: #047857;
+    }
+    .pill.pill-running .pill-dot {
+      background: var(--ok);
+      box-shadow: 0 0 0 3px rgb(16 185 129 / 0.18);
+      animation: pulse-soft 2s ease-in-out infinite;
+    }
+    .pill.pill-active {
+      background: var(--brand-light);
+      color: var(--brand-2);
+    }
+    .pill.pill-active .pill-dot {
+      background: var(--brand);
+      box-shadow: 0 0 0 3px rgb(79 70 229 / 0.18);
+      animation: pulse-soft 1.4s ease-in-out infinite;
+    }
+    .pill.pill-idle {
+      background: var(--surface-2);
+      color: var(--text-3);
+    }
+    .pill.pill-idle .pill-dot { background: var(--text-4); }
+
+    /* worker_ui.js sets val-amber/val-muted on #postingStatusEl; map them
+       to the same flat-pill aesthetic. We keep an inline SVG icon outside
+       the element (a sibling label-icon pattern would be cleaner, but the
+       worker_ui.js contract lets us only style the element by class). */
+    #postingStatusEl {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px 3px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      line-height: 1.4;
+      background: var(--surface-2);
+      color: var(--text-3);
+    }
+    #postingStatusEl::before {
+      content: '';
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--text-4);
+      flex-shrink: 0;
+    }
+    #postingStatusEl.val-amber {
+      background: var(--brand-light);
+      color: var(--brand-2);
+    }
+    #postingStatusEl.val-amber::before {
+      background: var(--brand);
+      box-shadow: 0 0 0 3px rgb(79 70 229 / 0.18);
+      animation: pulse-soft 1.4s ease-in-out infinite;
+    }
+
+    .system-counter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 11.5px;
+      font-weight: 600;
+    }
+    .system-counter strong {
+      color: var(--text);
+      font-family: var(--font-mono);
+      font-weight: 700;
+    }
+
+    /* ═════════════════ ACTIVITY LOG ═══════════════════════════════ */
+    .log-section {
+      margin-top: 18px;
+      background: #fff;
+      border: 1px solid var(--border-card);
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: var(--shadow-sm);
+    }
+    .log-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+      gap: 12px;
+    }
+    .log-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .log-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-2);
+    }
+    .log-count-badge {
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      color: var(--brand-2);
+      background: var(--brand-light);
+      border: 1px solid rgb(79 70 229 / 0.20);
+      border-radius: 999px;
+      padding: 2px 9px;
+      font-weight: 600;
+    }
+    .log-actions { display: flex; align-items: center; gap: 12px; }
+    .icon-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--text-3);
+      cursor: pointer;
+      font-size: 11px;
+      font-family: var(--font-sans);
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      padding: 6px 12px;
+      border-radius: 999px;
+      transition: all 140ms;
+    }
+    .icon-btn:hover {
+      color: var(--brand);
+      background: var(--brand-light);
+      border-color: rgb(79 70 229 / 0.20);
+    }
+
+    .reveal-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .reveal-label {
+      font-size: 11px;
+      color: var(--text-3);
+      font-weight: 500;
+    }
+    .toggle {
+      position: relative;
+      width: 30px; height: 17px;
+      cursor: pointer;
+      display: inline-block;
+    }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-track {
+      position: absolute;
+      inset: 0;
+      background: var(--border-2);
+      border-radius: 9px;
+      transition: background 150ms;
+    }
+    .toggle input:checked + .toggle-track {
+      background: var(--brand);
+    }
+    .toggle-thumb {
+      position: absolute;
+      top: 2px; left: 2px;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: #fff;
+      transition: left 180ms cubic-bezier(.4,0,.2,1);
+      box-shadow: 0 1px 3px rgb(15 23 42 / 0.20);
+    }
+    .toggle input:checked ~ .toggle-thumb { left: 15px; }
+
+    .log-body {
+      overflow-y: auto;
+      padding: 6px 0;
+      font-family: var(--font-sans);  /* descriptions in font-sans per the spec */
+      font-size: 12.5px;
+      line-height: 1.7;
+      background: #fff;
+      max-height: 350px;              /* hard cap — never push the page down */
+      min-height: 200px;
+    }
+    .log-body::-webkit-scrollbar { width: 6px; }
+    .log-body::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+
+    .log-entry {
+      display: grid;
+      grid-template-columns: 80px 14px minmax(0, 1fr);
+      align-items: baseline;
+      gap: 6px 12px;                  /* row gap so raw block has breathing room */
+      padding: 5px 20px;
+      border-bottom: 1px solid var(--surface-2);
+      animation: fadeUp 180ms cubic-bezier(.4,0,.2,1);
+    }
+    .log-entry:last-child { border-bottom: none; }
+    .log-entry:hover { background: var(--brand-tint); }
+
+    .log-ts {
+      color: #94a3b8;                 /* slate-400 per spec */
+      font-size: 10.5px;
+      font-family: var(--font-mono);
+      letter-spacing: 0.02em;
+      font-weight: 500;
+    }
+    .log-lvl {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 7px;
+      flex-shrink: 0;
+    }
+    /* No bright red for non-error rows. */
+    .lvl-info    { background: var(--brand); }       /* indigo for info */
+    .lvl-success { background: var(--ok); }          /* emerald */
+    .lvl-warn    { background: var(--warn); }        /* amber */
+    .lvl-error   { background: var(--error); }       /* rose — real errors only */
+    .lvl-dim     { background: var(--text-4); }      /* slate-400 */
+    .lvl-system  { background: var(--text-2); }      /* slate-700 */
+
+    /* TRUNCATED single-line message — never breaks the layout */
+    .log-msg {
+      color: var(--text);
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      min-width: 0;                   /* required for ellipsis inside grid */
+    }
+    .log-msg.info    { color: var(--text); }
+    .log-msg.success { color: #047857; font-weight: 500; }   /* emerald-700 */
+    .log-msg.warn    { color: var(--warn-text); font-weight: 500; }
+    .log-msg.error   { color: #b91c1c; font-weight: 500; }   /* rose-700 */
+    .log-msg.system  { color: var(--text); font-weight: 500; }
+    .log-msg.dim     { color: var(--text-3); }
+
+    /* EXPANDABLE raw code block — hidden by default; shown when Reveal toggle is on */
+    .log-raw {
+      display: none;
+      grid-column: 3 / -1;            /* sit under the message column only */
+      margin: 4px 0 2px;
+      background: #f1f5f9;             /* slate-100 */
+      border: 1px solid #e2e8f0;       /* slate-200 */
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: #475569;                  /* slate-600 */
+      white-space: pre-wrap;
+      word-break: break-all;
+      max-height: 128px;               /* h-32 */
+      overflow-y: auto;
+      line-height: 1.55;
+    }
+    .log-raw::-webkit-scrollbar { width: 5px; }
+    .log-raw::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .log-body.revealed .log-entry .log-raw { display: block; }
+
+    .log-empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      gap: 12px;
+      color: var(--text-4);
+      min-height: 200px;
+    }
+    .log-empty-icon {
+      width: 48px; height: 48px;
+      border-radius: 999px;
+      background: var(--brand-light);
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .log-empty-icon svg { width: 22px; height: 22px; }
+    .log-empty-text {
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+
+    /* ═════════════════ FOOTER ═════════════════════════════════════ */
+    footer {
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 28px;
+      gap: 12px;
+      flex-shrink: 0;
+      font-size: 11px;
+      color: var(--text-3);
+      font-weight: 500;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .footer-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--ok);
+      animation: pulse-soft 2s ease-in-out infinite;
+    }
+    footer strong {
+      color: #047857;       /* emerald-700 */
+      font-weight: 600;
+      letter-spacing: 0.04em;
+    }
+    .footer-right {
+      font-family: var(--font-mono);
+      color: var(--text-4);
+      letter-spacing: 0.02em;
+    }
+
+    /* ═════════════════ TOAST ═══════════════════════════════════════ */
+    .toast-host {
+      position: fixed;
+      right: 24px;
+      bottom: 56px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      z-index: 1000;
+      pointer-events: none;
+    }
+    .toast {
+      pointer-events: auto;
+      min-width: 300px;
+      max-width: 380px;
+      background: #fff;
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--warn);
+      border-radius: var(--r);
+      padding: 12px 16px;
+      color: var(--text);
+      font-size: 12.5px;
+      line-height: 1.5;
+      box-shadow: var(--shadow-md);
+      animation: toastIn 220ms cubic-bezier(.4,0,.2,1);
+    }
+    .toast.toast-error   { border-left-color: var(--error); }
+    .toast.toast-success { border-left-color: var(--ok); }
+    .toast-title {
+      font-weight: 700;
+      margin-bottom: 3px;
+      color: var(--warn-text);
+      font-size: 11.5px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .toast.toast-error   .toast-title { color: #b91c1c; }
+    .toast.toast-success .toast-title { color: #047857; }
+    .toast-body {
+      color: var(--text-2);
+      font-weight: 500;
+    }
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(10px) scale(0.98); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastOut {
+      to { opacity: 0; transform: translateY(-6px); }
+    }
+
+    /* ═════════════════ SAFETY-FLOOR MODAL ══════════════════════════ */
+    .sf-modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgb(15 23 42 / 0.45);
+      z-index: 2000;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      animation: fadeUp 180ms ease;
+    }
+    .sf-modal-backdrop.visible { display: flex; }
+    .sf-modal {
+      background: #fff;
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      max-width: 460px;
+      width: 100%;
+      padding: 22px 24px;
+      box-shadow: 0 16px 48px rgb(15 23 42 / 0.18);
+    }
+    .sf-modal-title {
+      font-weight: 700;
+      font-size: 15px;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sf-modal-title::before {
+      content: '';
+      width: 28px; height: 28px;
+      border-radius: 999px;
+      background: var(--warn-dim);
+      flex-shrink: 0;
+      background-image: url("data:image/svg+xml,%3Csvg width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23f59e0b' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z'/%3E%3Cpath d='M12 9v4'/%3E%3Cpath d='M12 17h.01'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: center;
+    }
+    .sf-modal-body {
+      color: var(--text);
+      font-size: 13.5px;
+      line-height: 1.55;
+      margin-bottom: 12px;
+    }
+    .sf-modal-numbers {
+      font-family: var(--font-mono);
+      font-size: 13px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      color: var(--text-2);
+    }
+    .sf-modal-hint {
+      color: var(--text-3);
+      font-size: 12px;
+      line-height: 1.55;
+      margin-bottom: 18px;
+    }
+    .sf-modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+    .sf-modal-btn {
+      padding: 9px 18px;
+      border-radius: 999px;
+      border: 1px solid var(--border-2);
+      background: #fff;
+      color: var(--text);
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease;
+    }
+    .sf-modal-btn:hover { background: var(--surface-2); }
+    .sf-modal-btn.sf-modal-cancel { border-color: var(--border-2); }
+    .sf-modal-btn.sf-modal-accept {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #fff;
+    }
+    .sf-modal-btn.sf-modal-accept:hover {
+      background: var(--brand-2);
+      border-color: var(--brand-2);
+    }
+
+    /* ═════════════════ SHARED ANIMATIONS ═══════════════════════════ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(4px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .sr-only {
+      position: absolute !important;
+      width: 1px; height: 1px;
+      padding: 0; margin: -1px; overflow: hidden;
+      clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+    }
+
+    /* Responsive */
+    @media (max-width: 960px) {
+      .metrics-row { grid-template-columns: repeat(2, 1fr); }
+      .hero { grid-template-columns: 1fr; }
+      .hero-right { align-items: flex-start; flex-direction: row; flex-wrap: wrap; }
+      .hero-headline { font-size: 44px; }
+    }
+    @media (max-width: 640px) {
+      .page { padding: 16px; }
+      header { padding: 12px 16px; }
+      .warn-strip { padding: 8px 16px; }
+      .hero { padding: 22px 20px; }
+      .hero-headline { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══ Ban banner (visible during cooldown — actual block-state, hence rose) ══ -->
+<div class="ban-banner" id="banBanner" role="alert">
+  <span class="ban-banner-icon">!</span>
+  <div>
+    <span class="ban-banner-title">Cooldown</span>
+    <span class="ban-banner-body" id="banBannerBody">Posting paused to protect this account.</span>
+  </div>
+  <span class="ban-banner-countdown" id="banBannerCountdown"></span>
+  <button type="button" class="ban-banner-clear" id="banBannerClear" title="Clear cooldown manually (escape hatch for false-positives)">Clear</button>
+</div>
+
+<!-- ═══ Persistent warning strip — sleek amber notice ════════════ -->
+<div class="warn-strip" role="note">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="10"></circle>
+    <line x1="12" y1="8" x2="12" y2="12"></line>
+    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+  </svg>
+  <span><strong>Do not close this tab.</strong> Your Facebook connection lives here — closing will pause posting.</span>
+</div>
+
+<!-- ═══ Top bar ═════════════════════════════════════════════════ -->
+<header>
+  <div class="brand">
+    <div class="brand-mark">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2C6.477 2 2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.879V14.89h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.989C18.343 21.129 22 16.99 22 12c0-5.523-4.477-10-10-10z"/>
+      </svg>
+    </div>
+    <span>multigroupposter</span>
+    <span class="brand-tag">engine</span>
+  </div>
+  <div class="header-right">
+    <div class="conn-badge" id="connBadge">
+      <div class="conn-dot" id="connDot"></div>
+      <span id="connText">Connected</span>
+    </div>
+  </div>
+</header>
+
+<!-- ═══ Scrollable page ═════════════════════════════════════════ -->
+<div class="page">
+
+  <!-- HERO: North Star status -->
+  <section class="hero">
+    <div class="hero-left">
+      <div class="hero-kicker">Engine status</div>
+      <div class="hero-status">
+        <div class="hero-status-dot"></div>
+        <h1 class="hero-headline">Active</h1>
+      </div>
+      <p class="hero-sub">The posting engine is running safely. Automations continue in the background as long as this tab stays open and you're signed in to Facebook.</p>
+
+      <div class="hero-session">
+        <div class="hero-avatar" id="avatarEl">?</div>
+        <div class="hero-session-meta">
+          <div class="hero-session-name" id="userNameEl">Loading…</div>
+          <div class="hero-session-sub" id="userSubEl">—</div>
+        </div>
+        <button class="hero-refresh" id="refreshBtn" type="button">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
+        </button>
+      </div>
+    </div>
+
+    <div class="hero-right">
+      <div class="hero-meta-block">
+        <div class="hero-meta-label">Uptime</div>
+        <div class="hero-meta-value" id="uptimeEl">00:00:00</div>
+        <div class="hero-meta-sub">since tab opened</div>
+      </div>
+      <div class="hero-meta-block">
+        <div class="hero-meta-label">Last success</div>
+        <div class="hero-meta-value" id="dashLastSuccess">—</div>
+        <div class="hero-meta-sub" id="dashLastSuccessSub">No posts yet</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- METRICS: Health cards (white, indigo numbers, pill icons) -->
+  <section class="metrics-row">
+    <div class="metric-card" id="metricToday">
+      <div class="metric-icon" aria-hidden="true">
+        <!-- Phosphor-style Lightning duotone -->
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M215.79 118.17a8 8 0 0 0-5-5.66L153 90.9l14.71-73.5a8 8 0 0 0-13.36-7.51l-112 120a8 8 0 0 0 3 13l57.7 21.6L88.34 238a8 8 0 0 0 13.36 7.5l112-120a8 8 0 0 0 2.09-7.34Z" opacity=".25"/><path d="M213.85 125.46l-112 120a8 8 0 0 1-13.69-7l14.66-73.33-57.63-21.6a8 8 0 0 1-3-13l112-120a8 8 0 0 1 13.69 7L153.18 90.9l57.63 21.61a8 8 0 0 1 3 12.95Z"/></svg>
+      </div>
+      <div class="metric-label">Posts · Today</div>
+      <div class="metric-value dash-card-value" id="dashPostsToday">—</div>
+      <div class="metric-sub" id="dashPostsTodaySub">Safety floor 200/day</div>
+    </div>
+    <div class="metric-card" id="metricTier">
+      <div class="metric-icon" aria-hidden="true">
+        <!-- Phosphor-style Gauge duotone -->
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M232 128a104 104 0 1 1-104-104 104 104 0 0 1 104 104Z" opacity=".25"/><path d="M128 64a72 72 0 0 0-58.55 113.55a8 8 0 0 0 6.55 3.45h104a8 8 0 0 0 6.55-3.45A72 72 0 0 0 128 64Zm5.66 67.31a8 8 0 0 1-11.32-11.31l32-32a8 8 0 0 1 11.32 11.31ZM128 16a112 112 0 1 0 112 112A112.13 112.13 0 0 0 128 16Zm0 208a96 96 0 1 1 96-96 96.11 96.11 0 0 1-96 96Z"/></svg>
+      </div>
+      <div class="metric-label">Smart delay</div>
+      <div class="metric-value dash-card-value" id="dashDelayTier">1.0×</div>
+      <div class="metric-sub" id="dashDelayTierSub">Rest 2.4m / 3 posts</div>
+    </div>
+    <div class="metric-card" id="metricStrikes">
+      <div class="metric-icon" aria-hidden="true">
+        <!-- Phosphor-style ShieldCheck duotone -->
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="M208 40H48a16 16 0 0 0-16 16v58.78c0 89.61 75.82 119.34 91 124.39a15.53 15.53 0 0 0 10 0c15.2-5.05 91-34.78 91-124.39V56a16 16 0 0 0-16-16Z" opacity=".25"/><path d="M208 32H48a24 24 0 0 0-24 24v58.78c0 96.05 81.3 127.68 97.66 133.13a23.94 23.94 0 0 0 12.69.06C151.05 242.55 232 210.92 232 114.78V56a24 24 0 0 0-24-24Zm-32.69 73.66-56 56a8 8 0 0 1-11.32 0l-24-24a8 8 0 0 1 11.32-11.32L114 145l50.34-50.31a8 8 0 0 1 11.32 11.32Z"/></svg>
+      </div>
+      <div class="metric-label">Strikes</div>
+      <div class="metric-value dash-card-value" id="dashStrikes">0</div>
+      <div class="metric-sub" id="dashStrikesSub">Clean</div>
+    </div>
+    <div class="metric-card" id="metricSent">
+      <div class="metric-icon" aria-hidden="true">
+        <!-- Phosphor-style PaperPlaneTilt duotone -->
+        <svg viewBox="0 0 256 256" fill="currentColor"><path d="m227.32 28.68-198.65 56.4a8 8 0 0 0-1.1 15l85.06 35.45 35.45 85.06a8 8 0 0 0 15-1.1l56.4-198.65a8 8 0 0 0-7.4-2.16Z" opacity=".25"/><path d="m236.24 19.76-1.07-1.07-1.18-.78-1.39-.66-1.34-.4-1.45-.16h-1.39l-1.49.21h-.05L29.7 73.3a16 16 0 0 0-2.42 30.05L114 138.78V230a16 16 0 0 0 16 16 16.18 16.18 0 0 0 14.31-9.11l60.94-117a8 8 0 1 0-14.18-7.4L130 230v-.07L130 138.78l86.17 41.94 41.94-86.17 27.94-86.16Z"/></svg>
+      </div>
+      <div class="metric-label">Posts · Session</div>
+      <div class="metric-value" id="postsSentEl">—</div>
+      <div class="metric-sub">sent from this tab</div>
+    </div>
+  </section>
+
+  <!-- SYSTEM: Pill badges for engine state + counter -->
+  <section class="system-row">
+    <div class="system-stats">
+      <span class="pill pill-running">
+        <!-- Phosphor Heartbeat duotone — communicates a live, healthy engine -->
+        <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true">
+          <path d="M232 128a104 104 0 1 1-104-104 104 104 0 0 1 104 104Z" opacity=".25"/>
+          <path d="M232 120h-26.34l-23.32-46.65a8 8 0 0 0-14.31 0L130 142.11l-21.51-43a8 8 0 0 0-14.31 0L74.34 120H24a8 8 0 0 0 0 16h55.06a8 8 0 0 0 7.16-4.42L101.34 102l21.51 43a8 8 0 0 0 14.31 0L168 81.89l16.82 33.69A8 8 0 0 0 192 136h40a8 8 0 0 0 0-16Z"/>
+        </svg>
+        Engine running
+      </span>
+      <span id="postingStatusEl">Idle</span>
+    </div>
+    <div class="system-counter">
+      Activity entries: <strong id="logCountEl">0</strong>
+    </div>
+  </section>
+
+  <!-- ACTIVITY LOG -->
+  <section class="log-section">
+    <div class="log-header">
+      <div class="log-title-wrap">
+        <span class="log-title">Activity</span>
+        <span class="log-count-badge" id="logBadge">0 entries</span>
+      </div>
+      <div class="log-actions">
+        <div class="reveal-wrap">
+          <span class="reveal-label">Reveal</span>
+          <label class="toggle">
+            <input type="checkbox" id="revealToggle"/>
+            <div class="toggle-track"></div>
+            <div class="toggle-thumb"></div>
+          </label>
+        </div>
+        <button class="icon-btn" id="runDiagnosticBtn" title="Run a quick self-test post and produce a diagnostic report you can download and send to support (no DevTools needed)">🔍 Run Diagnostic</button>
+        <button class="icon-btn" id="downloadLogsBtn" title="Download the saved engine logs">Download logs</button>
+        <button class="icon-btn" id="clearBtn">Clear</button>
+      </div>
+    </div>
+    <div class="log-body" id="logBody">
+      <div class="log-empty" id="logEmpty">
+        <div class="log-empty-icon">
+          <!-- Phosphor-style Activity duotone -->
+          <svg viewBox="0 0 256 256" fill="currentColor" aria-hidden="true"><path d="M232 128h-40l-32 88-64-176-32 88H24" opacity=".25" stroke="currentColor" stroke-width="16" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M232 120h-34.4l-30 82.45a8 8 0 0 1-7.52 5.27 8 8 0 0 1-7.52-5.45l-56-153.93-25.42 70a8 8 0 0 1-7.52 5.27H24a8 8 0 0 1 0-16h33.6l30-82.45a8 8 0 0 1 15 .18l56 153.93 25.46-70a8 8 0 0 1 7.52-5.27H232a8 8 0 0 1 0 16Z"/></svg>
+        </div>
+        <div class="log-empty-text">Waiting for activity</div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- Toast host -->
+<div class="toast-host" id="toastHost" aria-live="polite"></div>
+
+<!-- Safety-floor confirm modal -->
+<div class="sf-modal-backdrop" id="sfModal" role="dialog" aria-modal="true" aria-labelledby="sfModalTitle">
+  <div class="sf-modal">
+    <div class="sf-modal-title" id="sfModalTitle">Safety limit check</div>
+    <div class="sf-modal-body" id="sfModalBody">
+      Publishing this batch would cross the 200-posts-per-day safety threshold.
+    </div>
+    <div class="sf-modal-numbers" id="sfModalNumbers"></div>
+    <div class="sf-modal-hint">
+      Facebook aggressively flags accounts that post more than ~200 times a day.
+      Continuing is at your own risk — we recommend splitting the batch across days.
+    </div>
+    <div class="sf-modal-actions">
+      <button type="button" class="sf-modal-btn sf-modal-cancel" id="sfModalCancel">Cancel</button>
+      <button type="button" class="sf-modal-btn sf-modal-accept" id="sfModalAccept">Continue anyway</button>
+    </div>
+  </div>
+</div>
+
+<!-- Footer -->
+<footer>
+  <div class="footer-left">
+    <div class="footer-dot"></div>
+    <strong>Engine active</strong>
+    <span>·</span>
+    <span>tab must remain open</span>
+  </div>
+  <div class="footer-right">multigroupposter</div>
+</footer>
+
+<script src="mgp-engine-safety.js"></script>
+<!-- mgp-engine-ui.js FIRST: sets up console capture before engine emits any logs -->
+<script src="mgp-engine-ui.js"></script>
+<!-- mgp-engine-core.js SECOND: its console.log calls are now captured by the UI -->
+<script src="mgp-engine-core.js"></script>
+<!-- v1.19.6: alwaysActive.js removed (visibility/focus overrides).
+     Worker keep-alive is handled by the standard chrome.runtime.connect port. -->
+</body>
+</html>
