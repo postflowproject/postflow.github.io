@@ -1437,6 +1437,25 @@ export default function App() {
 
   const [pageTitle, pageSubtitle] = pageDetails[activePage] || pageDetails.dashboard;
 
+  // Facebook is the default entry gate: show the workspace only after login.
+  if (!fbConnected) {
+    return (
+      <main className="login-screen">
+        <section className="login-card">
+          <div className="login-brand-mark"><span>P</span></div>
+          <p className="login-eyebrow">CONTENT STUDIO</p>
+          <h1>Welcome to <span>PostFlow</span></h1>
+          <p className="login-description">Sign in with Facebook to connect your Pages and open your publishing workspace.</p>
+          <button className="login-facebook-button" onClick={handleConnectFacebook} disabled={fbBusy} type="button">
+            {fbBusy ? <><span className="login-spinner" /> Connecting to Facebook…</> : <><span className="facebook-f">f</span> Continue with Facebook</>}
+          </button>
+          {notice && <p className="login-notice" role="status">{notice}</p>}
+          <p className="login-footnote">You’ll be redirected through Facebook’s secure login. PostFlow never asks for your Facebook password.</p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
