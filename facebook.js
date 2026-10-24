@@ -1,49 +1,72 @@
-// src/facebook.js
-// Handles Facebook SDK loading, OAuth login, fetching pages, and Graph API publishing.
+// Facebook SDK login, Page discovery, and Graph API publishing.
+const GRAPH_VERSION = "v23.0";
+let sdkPromise = null;
+let initializedAppId = null;
 
 export function loadFacebookSdk(appId) {
-  return new Promise((resolve, reject) => {
-    if (!appId) {
-      reject(new Error("Facebook App ID is not configured. Please add it in Settings."));
-      return;
-    }
+  if (!appId?.trim()) {
+    return Promise.reject(new Error("Enter your Facebook App ID in PostFlow Settings first."));
+  }
+  if (window.FB && initializedAppId === appId) return Promise.resolve(window.FB);
+  if (sdkPromise && initializedAppId === appId) return sdkPromise;
 
-    if (window.FB) {
-      resolve(window.FB);
-      return;
-    }
-
-    window.fbAsyncInit = function() {
-      window.FB.init({
-        appId: appId,
-        cookie: true,
-        xfbml: true,
-        version: "v18.0"
-      });
-      resolve(window.FB);
+  initializedAppId = appId;
+  sdkPromise = new Promise((resolve, reject) => {
+    const initialize = () => {
+      if (!window.FB) {
+        sdkPromise = null;
+        reject(new Error("Facebook SDK loaded without its API. Refresh the page and try again."));
+        return;
+      }
+      try {
+        window.FB.init({ appId, cookie: true, xfbml: false, version: GRAPH_VERSION });
+        resolve(window.FB);
+      } catch (error) {
+        sdkPromise = null;
+        reject(error);
+      }
     };
 
-    if (document.getElementById("facebook-jssdk")) {
-      resolve(window.FB);
+    if (window.FB) {
+      initialize();
       return;
     }
 
-    const js = document.createElement("script");
-    js.id = "facebook-jssdk";
-    js.src = "https://connect.facebook.net/en_US/sdk.js";
-    js.onerror = () => reject(new Error("Failed to load Facebook SDK. Check your network or ad blocker."));
-    document.body.appendChild(js);
+    let script = document.getElementById("facebook-jssdk");
+    if (script) {
+      script.addEventListener("load", initialize, { once: true });
+      script.addEventListener("error", () => {
+        sdkPromise = null;
+        reject(new Error("Could not load Facebook SDK. Check your connection or content blocker."));
+      }, { once: true });
+      if (window.FB) initialize();
+      return;
+    }
+
+    window.fbAsyncInit = initialize;
+    script = document.createElement("script");
+    script.id = "facebook-jssdk";
+    script.async = true;
+    script.defer = true;
+    script.crossOrigin = "anonymous";
+    script.src = "https://connect.facebook.net/en_US/sdk.js";
+    script.onerror = () => {
+      sdkPromise = null;
+      reject(new Error("Could not load Facebook SDK. Check your connection or content blocker."));
+    };
+    document.head.appendChild(script);
   });
+  return sdkPromise;
 }
 
 export async function fbLogin(appId) {
   const FB = await loadFacebookSdk(appId);
   return new Promise((resolve, reject) => {
     FB.login((response) => {
-      if (response.authResponse) {
+      if (response?.authResponse?.accessToken) {
         resolve(response.authResponse);
       } else {
-        reject(new Error("Facebook sign-in was cancelled or authorization was incomplete."));
+        reject(new Error("Facebook login was cancelled or denied. Check your Meta app's Facebook Login settings and allowed domains."));
       }
     }, { scope: "pages_show_list,pages_manage_posts,pages_read_engagement" });
   });
@@ -52,63 +75,52 @@ export async function fbLogin(appId) {
 export async function fbGetLoginStatus(appId) {
   try {
     const FB = await loadFacebookSdk(appId);
-    return new Promise((resolve) => {
-      FB.getLoginStatus((response) => resolve(response));
-    });
+    return await new Promise((resolve) => FB.getLoginStatus(resolve));
   } catch {
     return { status: "unknown" };
   }
 }
 
-export async function fetchFacebookPages(accessToken) {
-  try {
-    const response = await fetch(`https://graph.facebook.com/v18.0/me/accounts?access_token=${accessToken}`);
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error.message || "Failed to fetch Facebook pages.");
-    }
-    return data.data || [];
-  } catch (error) {
-    console.error("Error fetching Facebook pages:", error);
-    throw error;
+async function graphRequest(url, options = {}) {
+  const response = await fetch(url, options);
+  let data;
+  try { data = await response.json(); } catch { throw new Error("Facebook returned an unreadable response."); }
+  if (!response.ok || data?.error) {
+    throw new Error(data?.error?.message || `Facebook request failed (${response.status}).`);
   }
+  return data;
 }
 
-export async function publishToFacebookGraph({ pageId, pageAccessToken, caption, mediaFile }) {
-  if (!pageId || !pageAccessToken) {
-    throw new Error("Selected page is not connected to a valid Facebook Page Access Token.");
-  }
+export async function fetchFacebookPages(accessToken) {
+  if (!accessToken) throw new Error("Facebook login did not return an access token.");
+  const params = new URLSearchParams({
+    access_token: accessToken,
+    fields: "id,name,category,access_token",
+    limit: "100",
+  });
+  const data = await graphRequest(`https://graph.facebook.com/${GRAPH_VERSION}/me/accounts?${params}`);
+  return data.data || [];
+}
 
+export async function publishToFacebookGraph({ pageId, pageAccessToken, caption = "", mediaFile }) {
+  if (!pageId || !pageAccessToken) throw new Error("This destination has no valid Facebook Page access token.");
+
+  const endpoint = mediaFile
+    ? `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pageId)}/photos`
+    : `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pageId)}/feed`;
+
+  const body = new FormData();
+  body.append("access_token", pageAccessToken);
   if (mediaFile) {
-    // Publish photo with caption using Graph API /photos endpoint
-    const formData = new FormData();
-    formData.append("access_token", pageAccessToken);
-    formData.append("caption", caption || "");
-    formData.append("source", mediaFile);
-
-    const response = await fetch(`https://graph.facebook.com/v18.0/${pageId}/photos`, {
-      method: "POST",
-      body: formData,
-    });
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error.message || "Graph API photo publishing failed.");
+    if (!mediaFile.type?.startsWith("image/")) {
+      throw new Error("Direct publishing currently supports images. Video publishing needs Facebook's video upload endpoint.");
     }
-    return data;
+    body.append("source", mediaFile, mediaFile.name || "post-image");
+    body.append("caption", caption);
   } else {
-    // Publish text-only post to page feed
-    const response = await fetch(`https://graph.facebook.com/v18.0/${pageId}/feed`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        message: caption,
-        access_token: pageAccessToken,
-      }),
-    });
-    const data = await response.json();
-    if (data.error) {
-      throw new Error(data.error.message || "Graph API feed publishing failed.");
-    }
-    return data;
+    if (!caption.trim()) throw new Error("Add a caption or attach an image before publishing.");
+    body.append("message", caption);
   }
+
+  return graphRequest(endpoint, { method: "POST", body });
 }
