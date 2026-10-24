@@ -29,7 +29,7 @@ export default function App() {
   const [settings, setSettings] = useState(initial.settings);
 
   // Facebook Connection State
-  const [fbConnected, setFbConnected] = useState(initial.settings.facebookConnected || false);
+  const [fbConnected, setFbConnected] = useState(false);
   const [fbToken, setFbToken] = useState(initial.settings.facebookAccessToken || "");
   const [fbBusy, setFbBusy] = useState(false);
 
@@ -142,14 +142,15 @@ export default function App() {
 
   // Connect Facebook Account & Fetch Pages
   async function handleConnectFacebook() {
-    if (!settings.facebookAppId) {
+    const facebookAppId = settings.facebookAppId || "1470881274913401";
+    if (!facebookAppId) {
       notify("Please enter your Facebook App ID in Settings first.");
       setActivePage("settings");
       return;
     }
     setFbBusy(true);
     try {
-      const authResponse = await fbLogin(settings.facebookAppId);
+      const authResponse = await fbLogin(facebookAppId);
       const token = authResponse.accessToken;
       setFbToken(token);
       setFbConnected(true);
