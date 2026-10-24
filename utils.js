@@ -7,6 +7,7 @@ export const DEFAULT_SETTINGS = {
   defaultVisibility: "Draft",
   confirmDelete: true,
   autoSave: true,
+  facebookAppId: "1470881274913401",
 };
 
 export const NAVIGATION = [
