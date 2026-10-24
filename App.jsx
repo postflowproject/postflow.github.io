@@ -15,7 +15,7 @@ import {
   csvDateTime,
 } from "./utils";
 import { fbLogin, fetchFacebookPages, publishToFacebookGraph } from "./facebook";
-import { StatCard, EmptyState, StatusBadge } from "./components/UI";
+import { StatCard, EmptyState, StatusBadge } from "./UI";
 import "./App.css";
 
 export default function App() {
