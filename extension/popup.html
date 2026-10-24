@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>PostFlow Group Helper</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;width:340px;padding:16px;background:#10131b;color:#eef1f8;font:13px/1.45 system-ui,sans-serif}
+    h1{font-size:17px;margin:0 0 4px}p{color:#aab3c5;margin:0 0 14px}
+    label{display:block;font-weight:650;margin:12px 0 6px}
+    textarea,input{width:100%;border:1px solid #343b4d;background:#191e2a;color:#f5f7fc;border-radius:9px;padding:9px;font:inherit}
+    textarea{resize:vertical;min-height:76px}#groups{min-height:94px}
+    button{border:0;border-radius:9px;padding:10px 12px;font-weight:700;cursor:pointer}
+    .primary{background:#6c7cff;color:white;width:100%;margin-top:10px}.secondary{background:#252c3c;color:#eef1f8;width:100%;margin-top:8px}
+    #status{margin-top:10px;min-height:18px;color:#9fddb5}.hint{font-size:11px;color:#929caf;margin-top:12px}
+  </style>
+</head>
+<body>
+  <h1>PostFlow Group Helper</h1>
+  <p>Prepare one post for your groups, one at a time.</p>
+  <label for="caption">Caption</label>
+  <textarea id="caption" placeholder="Write your caption once..."></textarea>
+  <label for="groups">Facebook Group URLs (one per line)</label>
+  <textarea id="groups" placeholder="https://www.facebook.com/groups/..."></textarea>
+  <button class="primary" id="save">Save caption & groups</button>
+  <button class="secondary" id="openNext">Open next group</button>
+  <button class="secondary" id="fillCaption">Fill caption on current group</button>
+  <div id="status" role="status"></div>
+  <div class="hint">You must choose/upload the video and review/click Publish yourself for each group. The extension does not auto-submit posts.</div>
+  <script src="popup.js"></script>
+</body>
+</html>
