@@ -38,6 +38,7 @@ async function save() {
   setStatus("Saved caption and " + groups.length + " group(s).");
   return true;
 }
+document.getElementById("dashboard").addEventListener("click", async () => { await chrome.tabs.create({ url: chrome.runtime.getURL("dashboard.html"), active: true }); });
 document.getElementById("findGroups").addEventListener("click", async () => {
   await chrome.storage.local.set({ caption: captionEl.value });
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
