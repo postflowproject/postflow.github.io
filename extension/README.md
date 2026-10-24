@@ -1,20 +1,26 @@
-# PostFlow Group Post Helper (prototype)
+# PostFlow Group Post Helper
 
-This is a portable Chrome extension prototype for preparing the same caption for Facebook Groups one at a time.
+Portable Chrome extension for preparing a caption and working through Facebook Groups one at a time.
 
-## Install on any Windows laptop
+## Install on another Windows laptop
 
-1. Download or clone this repository.
-2. Open Chrome and visit `chrome://extensions`.
-3. Turn on **Developer mode**.
-4. Choose **Load unpacked** and select the `extension` folder.
-5. Sign in to Facebook in that Chrome profile.
+1. Download this repository (Code → Download ZIP) and extract it, or clone it with Git.
+2. Open Chrome and go to `chrome://extensions`.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select the repository's `extension` folder.
+5. Sign in to Facebook in that Chrome profile, open Facebook Groups, and click the PostFlow extension.
 
-## Current prototype
+## Features
 
-- Stores a caption and a list of Facebook Group URLs locally in Chrome.
-- Opens the next group in the list.
-- Can attempt to fill the caption into a visible post composer after you open it.
-- You still select/upload the video and review/click Publish yourself for each group.
+- Finds visible group links on the current Facebook Groups page. Scroll the list and scan again to collect more; Facebook does not expose groups that have not loaded.
+- Saves caption, group list, recent caption history, and progress in Chrome local storage on that laptop.
+- Opens the next group not marked posted.
+- Inserts the caption into a visible composer after you open it.
+- Lets you manually mark a group posted and reset progress without deleting Facebook content.
+- Stops caption filling if it detects a login/checkpoint/restriction screen and warns if the exact caption was used before.
 
-Facebook changes its page markup often, so caption insertion may need adjustments. This extension does not bypass group membership, posting permissions, rate limits, or other Facebook controls. It does not automatically submit posts.
+## Posting and safety
+
+You must add/select the video, check the destination group and caption, and click Publish yourself. The extension does not automatically submit posts, bypass membership or posting permissions, defeat checkpoints, or evade rate limits. Only post content you are allowed to share and follow each group's rules.
+
+Progress is stored locally in the Chrome profile and does not automatically sync to another laptop.
