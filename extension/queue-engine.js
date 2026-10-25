@@ -67,7 +67,7 @@
     $("reviewQueueProgress").style.width = (jobs.length ? Math.round(complete / jobs.length * 100) : 0) + "%";
     $("reviewQueueItems").innerHTML = jobs.length ? jobs.map((job, index) => {
       const label = job.status === "completed" ? "✓ Reviewed" : job.status === "opened" ? "↗ Opened" : "○ Pending";
-      return `<div class="activity-item"><div><strong>${index + 1}. ${esc(job.groupName)}</strong><small>${esc(job.caption.slice(0, 110) || "No caption saved")} · ${label}</small></div><div class="campaign-actions"><button class="button secondary" data-queue-open="${esc(job.id)}">Open</button><button class="button ghost" data-queue-copy="${esc(job.id)}">Copy caption</button><button class="button ghost" data-queue-done="${esc(job.id)}">${job.status === "completed" ? "Undo" : "Reviewed"}</button></div></div>`;
+      return `<div class="activity-item"><div><strong>${index + 1}. ${esc(job.groupName)}</strong><small>${esc(job.caption.slice(0, 110) || "No caption saved")} · ${label}</small></div><div class="campaign-actions"><button class="button ghost" data-queue-up="${esc(job.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} up">↑</button><button class="button ghost" data-queue-down="${esc(job.id)}" ${index === jobs.length - 1 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} down">↓</button><button class="button secondary" data-queue-open="${esc(job.id)}">Open</button><button class="button ghost" data-queue-copy="${esc(job.id)}">Copy caption</button><button class="button ghost" data-queue-done="${esc(job.id)}">${job.status === "completed" ? "Undo" : "Reviewed"}</button></div></div>`;
     }).join("") : '<div class="empty">Select groups and build a queue to begin.</div>';
   }
 
@@ -144,6 +144,16 @@
     const job = jobs.find(item => item.status === "pending") || jobs.find(item => item.status === "opened");
     if (!job) return say("No pending queue items.");
     await openJob(job.id);
+  }
+
+  async function moveJob(id, direction) {
+    const index = jobs.findIndex(item => item.id === id);
+    const next = index + direction;
+    if (index < 0 || next < 0 || next >= jobs.length) return;
+    [jobs[index], jobs[next]] = [jobs[next], jobs[index]];
+    jobs.forEach((job, order) => { job.order = order; });
+    await saveQueue();
+    say("Queue order updated. Open next pending follows the new order.");
   }
 
   async function markReviewed(id) {
