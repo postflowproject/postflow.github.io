@@ -13,6 +13,8 @@ A Chrome extension for preparing Facebook group campaigns and working through a 
 
 ## Current features
 
+The review queue engine is an early implementation and has not yet been validated end-to-end in Chrome.
+
 - Dark workspace dashboard with group selection, caption composer, counters and progress.
 - Scans visible group links on the current Facebook tab; scroll/load more on Facebook and scan again to discover additional groups.
 - Displays discovered group names and selectable checkboxes.
@@ -21,6 +23,8 @@ A Chrome extension for preparing Facebook group campaigns and working through a 
 - Loads and deletes saved campaign drafts.
 - Optional image/video file picker shows the chosen media filename for the current dashboard session. It does not upload or persist the media file; attach it yourself in Facebook.
 - Opens the next selected group not manually marked complete.
+- Builds a persistent review queue from the selected groups and saved caption, with ordered jobs and pending/opened/reviewed states.
+- Queue progress survives dashboard and browser restarts in the same Chrome profile; queue status is manual and does not verify Facebook publication.
 - Can fill a caption into a visible Facebook composer and copy the optional first comment.
 - Tracks manually marked completion and local activity. This is not proof that Facebook published a post.
 
@@ -30,7 +34,7 @@ A Chrome extension for preparing Facebook group campaigns and working through a 
 2. Select the groups you intend to post to.
 3. Write the campaign caption and optional first comment; choose media as a reminder if helpful.
 4. Save the campaign draft.
-5. Click **Open next selected**, review the destination and group rules, attach media, and use **Fill caption on Facebook** if needed.
+5. In **Review queue**, build a queue from your selection. Use **Open next pending** or an individual **Open** action, review the destination and group rules, attach media, and use **Fill caption on Facebook** if needed.
 6. Check everything and click Facebook's Publish button yourself. Mark the group posted only after you have confirmed it.
 
 The queue is intentionally review-first. PostFlow does not auto-submit bulk posts, bypass Facebook permissions/checkpoints, or attempt to evade platform rate limits. Use only groups where you are permitted to post, and avoid repetitive or unwanted content.
