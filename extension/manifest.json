@@ -1,29 +1,10 @@
 {
   "manifest_version": 3,
   "name": "PostFlow Group Post Helper",
-  "version": "0.1.0",
-  "description": "Prepare a video post for Facebook Groups and track groups one at a time.",
-  "permissions": [
-    "storage",
-    "tabs",
-    "activeTab"
-  ],
-  "host_permissions": [
-    "https://www.facebook.com/*"
-  ],
-  "action": {
-    "default_title": "PostFlow Group Helper",
-    "default_popup": "popup.html"
-  },
-  "content_scripts": [
-    {
-      "matches": [
-        "https://www.facebook.com/groups/*"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle"
-    }
-  ]
+  "version": "0.2.1",
+  "description": "Prepare Facebook group posts and choose groups from your open Facebook tab.",
+  "permissions": ["storage", "tabs", "activeTab"],
+  "host_permissions": ["https://facebook.com/*", "https://www.facebook.com/*"],
+  "action": {"default_title":"PostFlow Group Helper","default_popup":"popup.html"},
+  "content_scripts": [{"matches":["https://facebook.com/*", "https://www.facebook.com/*"],"js":["content.js"],"run_at":"document_idle"}]
 }

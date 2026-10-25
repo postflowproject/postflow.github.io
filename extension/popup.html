@@ -9,25 +9,28 @@
     h1{font-size:17px;margin:0 0 4px}p{color:#aab3c5;margin:0 0 14px}
     label{display:block;font-weight:650;margin:12px 0 6px}
     textarea{width:100%;border:1px solid #343b4d;background:#191e2a;color:#f5f7fc;border-radius:9px;padding:9px;font:inherit;resize:vertical;min-height:76px}
-    #groups{min-height:105px}
-    button{border:0;border-radius:9px;padding:10px 12px;font-weight:700;cursor:pointer}
+    #groups{min-height:105px}button{border:0;border-radius:9px;padding:10px 12px;font-weight:700;cursor:pointer}
     .primary{background:#6c7cff;color:white;width:100%;margin-top:10px}.secondary{background:#252c3c;color:#eef1f8;width:100%;margin-top:8px}
-    #status{margin-top:10px;min-height:18px;color:#9fddb5}.hint{font-size:11px;color:#929caf;margin-top:12px}
+    #status{margin-top:10px;min-height:18px;color:#9fddb5}#progress{margin-top:9px;color:#c3cbe0;font-size:12px}.hint{font-size:11px;color:#929caf;margin-top:12px}
   </style>
 </head>
 <body>
   <h1>PostFlow Group Helper</h1>
-  <p>Find groups from your logged-in Facebook account.</p>
+  <p>Find visible groups from your logged-in Facebook account.</p>
   <label for="caption">Caption</label>
   <textarea id="caption" placeholder="Write your caption once..."></textarea>
-  <button class="primary" id="findGroups">Find my Facebook groups</button>
-  <label for="groups">Groups found (you can edit this list)</label>
+  <button class="primary" id="dashboard">Open full dashboard ↗</button>
+  <button class="secondary" id="findGroups">Find my Facebook groups</button>
+  <label for="groups">Groups found (editable list)</label>
   <textarea id="groups" placeholder="Click “Find my Facebook groups”"></textarea>
   <button class="secondary" id="save">Save caption & groups</button>
-  <button class="secondary" id="openNext">Open next group</button>
+  <button class="secondary" id="openNext">Open next unmarked group</button>
   <button class="secondary" id="fillCaption">Fill caption on current group</button>
+  <button class="secondary" id="markPosted">Mark current group as posted</button>
+  <button class="secondary" id="resetProgress">Reset progress</button>
+  <div id="progress" role="status">No groups saved yet.</div>
   <div id="status" role="status"></div>
-  <div class="hint">Discovery reads group links Facebook actually shows in your Groups page; it may not show every group at once. Add the video and review/click Publish yourself for each group.</div>
+  <div class="hint">Facebook only exposes links loaded on the page. You still upload the video and click Publish yourself. PostFlow never submits a post or bypasses Facebook restrictions.</div>
   <script src="popup.js"></script>
 </body>
 </html>
