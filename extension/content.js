@@ -22,8 +22,8 @@ const IGNORED_GROUP_PATHS=new Set(["feeds","discover","joins","create","your_gro
 function normalizeGroupLink(rawHref) {
   try {
     const u=new URL(rawHref,location.href);
-    if(!/(^|\\.)facebook\\.com$/i.test(u.hostname)||u.protocol!=="https:")return null;
-    const m=u.pathname.match(/^\\/groups\\/([^/?#]+)\\/?$/i);
+    if(!/(^|\.)facebook\.com$/i.test(u.hostname)||u.protocol!=="https:")return null;
+    const m=u.pathname.match(/^\/groups\/([^/?#]+)\/?$/i);
     if(!m||IGNORED_GROUP_PATHS.has(m[1].toLowerCase()))return null;
     u.hostname="www.facebook.com";u.pathname="/groups/"+m[1]+"/";u.search="";u.hash="";
     return u.href;
@@ -36,8 +36,8 @@ function groupNameFromAnchor(a) {
     a.innerText
   ];
   for(const value of candidates) {
-    const name=String(value||"").trim().replace(/\\s+/g," ");
-    if(name&&name.length<=160&&!/^\\d+$/.test(name)&&!/^(see all|view all|groups|join group|visit group)$/i.test(name))return name;
+    const name=String(value||"").trim().replace(/\s+/g," ");
+    if(name&&name.length<=160&&!/^\d+$/.test(name)&&!/^(see all|view all|groups|join group|visit group)$/i.test(name))return name;
   }
   return "";
 }
