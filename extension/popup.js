@@ -14,6 +14,7 @@ function validGroupUrl(value) {
 }
 function setStatus(message) { statusEl.textContent = message; }
 function captionKey(value) { return value.trim().replace(/\s+/g, " ").toLowerCase(); }
+function normalizeGroupUrl(value) { try { const url = new URL(value); url.search = ""; url.hash = ""; return url.href.replace(/\/$/, ""); } catch { return ""; } }
 
 async function load() {
   const data = await chrome.storage.local.get(["caption", "groups", "discoveredGroups", "nextIndex", "completedGroups"]);
@@ -24,15 +25,16 @@ async function load() {
   if (data.discoveredGroups?.length) setStatus("Found " + data.discoveredGroups.length + " group link(s) visible on Facebook.");
 }
 function renderProgress(groups, completed) {
-  const done = new Set(completed || []);
-  progressEl.textContent = groups.length ? "Progress: " + groups.filter(url => done.has(url)).length + " of " + groups.length + " marked posted." : "No groups saved yet.";
+  const done = new Set((completed || []).map(normalizeGroupUrl));
+  progressEl.textContent = groups.length ? "Progress: " + groups.filter(url => done.has(normalizeGroupUrl(url))).length + " of " + groups.length + " marked posted." : "No groups saved yet.";
 }
 async function save() {
   const groups = parseGroups(groupsEl.value);
   const invalid = groups.filter(url => !validGroupUrl(url));
   if (invalid.length) { setStatus("Check this group URL: " + invalid[0]); return false; }
   const data = await chrome.storage.local.get(["nextIndex", "completedGroups"]);
-  const completedGroups = (data.completedGroups || []).filter(url => groups.includes(url));
+  const savedUrls = new Set(groups.map(normalizeGroupUrl));
+  const completedGroups = (data.completedGroups || []).map(normalizeGroupUrl).filter(url => savedUrls.has(url));
   await chrome.storage.local.set({ caption: captionEl.value, groups, discoveredGroups: groups, nextIndex: Math.min(data.nextIndex || 0, Math.max(groups.length - 1, 0)), completedGroups });
   renderProgress(groups, completedGroups);
   setStatus("Saved caption and " + groups.length + " group(s).");
@@ -66,12 +68,12 @@ document.getElementById("openNext").addEventListener("click", async () => {
   const data = await chrome.storage.local.get(["groups", "nextIndex", "completedGroups"]);
   const groups = data.groups || [];
   if (!groups.length) return setStatus("No groups saved yet. Click Find my Facebook groups first.");
-  const completed = new Set(data.completedGroups || []);
+  const completed = new Set((data.completedGroups || []).map(normalizeGroupUrl));
   const start = (data.nextIndex || 0) % groups.length;
   let index = -1;
   for (let offset = 0; offset < groups.length; offset++) {
     const candidate = (start + offset) % groups.length;
-    if (!completed.has(groups[candidate])) { index = candidate; break; }
+    if (!completed.has(normalizeGroupUrl(groups[candidate]))) { index = candidate; break; }
   }
   if (index < 0) return setStatus("All saved groups are marked posted. Reset progress if you want to review the list again.");
   await chrome.tabs.create({ url: groups[index], active: true });
