@@ -196,11 +196,13 @@
     $("reviewQueueItems")?.addEventListener("click", async event => {
       const open = event.target.closest("[data-queue-open]");
       const copy = event.target.closest("[data-queue-copy]");
-      const comment = event.target.closest("[data-queue-comment]");\n      const done = event.target.closest("[data-queue-done]");
+      const comment = event.target.closest("[data-queue-comment]");
+      const done = event.target.closest("[data-queue-done]");
       const up = event.target.closest("[data-queue-up]");
       const down = event.target.closest("[data-queue-down]");
       if (open) await openJob(open.dataset.queueOpen);
       else if (copy) await copyCaption(copy.dataset.queueCopy);
+      else if (comment) await copyFirstComment(comment.dataset.queueComment);
       else if (done) await markReviewed(done.dataset.queueDone);
       else if (up) await moveJob(up.dataset.queueUp, -1);
       else if (down) await moveJob(down.dataset.queueDown, 1);
