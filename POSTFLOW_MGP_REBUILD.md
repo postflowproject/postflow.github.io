@@ -45,12 +45,21 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 3. Install the extension from one stable folder and update files in place; reload, do not uninstall/reinstall for each iteration.
 4. Merge to `main` only after the end-to-end workflow has been tested.
 
+## First implementation (2026-10-25)
+
+- Added `extension/queue-engine.js` and loaded it from `dashboard.html` on this branch.
+- Queue can be built from the currently selected groups and saved caption; each job stores group URL/name, caption, optional first comment, campaign label, order and status.
+- Queue can open a group, mark an item manually reviewed, undo that state, and clear the queue. All state stays in `chrome.storage.local`.
+- This is a first working foundation, not a full clone: it does not auto-publish, upload media, sync across devices, or call a remote backend. Facebook publication is not verified.
+- Browser test and automated syntax/behaviour tests remain outstanding.
+
 ## Status
 
 - [x] Create isolated development branch.
 - [x] Record initial reference inventory and backend boundary.
 - [ ] Trace worker entry points and message handlers.
 - [ ] Trace remote-service request contracts.
-- [ ] Design PostFlow-owned schema and API.
-- [ ] Implement and test the queue/backend.
+- [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
+- [ ] Design a PostFlow-owned remote schema/API (not configured yet).
+- [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
 - [ ] Integrate the extension and validate end-to-end.
