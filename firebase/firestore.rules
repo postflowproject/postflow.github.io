@@ -1,0 +1,15 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Every PostFlow workspace belongs to exactly one authenticated Firebase UID.
+    match /users/{userId}/workspace/{documentId} {
+      allow read, create, update, delete: if request.auth != null
+        && request.auth.uid == userId
+        && documentId == "main";
+    }
+    // Deny all other documents unless an explicit rule is added later.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
