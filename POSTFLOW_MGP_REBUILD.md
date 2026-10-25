@@ -57,9 +57,10 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 
 - [x] Create isolated development branch.
 - [x] Record initial reference inventory and backend boundary.
-- [ ] Trace worker entry points and message handlers.
-- [ ] Trace remote-service request contracts.
+- [x] Trace representative worker message handlers, retry/alarm storage and external service endpoints (see `REFERENCE_EXTENSION_TRACE.md`).
+- [ ] Finish tracing exact remote request/response contracts; current audit is an inventory, not a complete contract map.
 - [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
-- [ ] Design a PostFlow-owned remote schema/API (not configured yet).
+- [x] Draft a PostFlow-owned campaign/group/job schema and state machine in `REFERENCE_EXTENSION_TRACE.md`.
+- [ ] Implement the remote schema/API (not configured yet).
 - [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
 - [ ] Integrate the extension and validate end-to-end.
