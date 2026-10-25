@@ -11,7 +11,9 @@
   "host_permissions": [
     "https://facebook.com/*",
     "https://www.facebook.com/*",
-    "https://*.supabase.co/*"
+    "https://identitytoolkit.googleapis.com/*",
+    "https://securetoken.googleapis.com/*",
+    "https://firestore.googleapis.com/*"
   ],
   "background": {
     "service_worker": "background.js"
