@@ -142,7 +142,7 @@
     await saveSession(null);
     mode = "login"; render(); showGate();
   }
-  document.getElementById("logout")?.addEventListener("click", logout);
+  document.getElementById("logout")?.addEventListener("click", () => window.dispatchEvent(new Event("postflow:logout")));
   window.addEventListener("postflow:logout", logout);
   async function init() {
     showGate(); render();
@@ -169,7 +169,16 @@
     }
     await saveSession(null); showGate();
   }
+  document.getElementById("accountSignIn")?.addEventListener("click", () => openMode("login"));
+  document.getElementById("accountCreate")?.addEventListener("click", () => openMode("signup"));
+  document.getElementById("accountReset")?.addEventListener("click", () => openMode("reset"));
+  function openMode(nextMode) {
+    if (document.getElementById("accountEmail")?.value.trim()) email.value = document.getElementById("accountEmail").value.trim();
+    mode = nextMode; render(); showGate();
+    email.focus();
+  }
   window.PostFlowAuth = {
+    openMode,
     getSession: () => session,
     getAccessToken: () => session?.idToken || null,
     getUser: () => session?.user || null,
