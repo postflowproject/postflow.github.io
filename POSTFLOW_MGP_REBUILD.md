@@ -53,13 +53,14 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - This is a first working foundation, not a full clone: it does not auto-publish, upload media, sync across devices, or call a remote backend. Facebook publication is not verified.
 - Browser test and automated syntax/behaviour tests remain outstanding.
 
-## Account and subscription UI pass (2026-10-26)
+## Account and authentication pass (2026-10-26)
 
-- Added an Account & Subscription section to the extension dashboard, with sign-in, account creation, password recovery, and current-plan presentation.
-- Account controls are intentionally disabled until a real account service is configured. The user clarified that billing and subscriptions are not wanted; do not implement paid plans, subscription checks, or payment screens. No local fake login, vendor endpoint impersonation, or password storage was added.
-- The only connected Supabase project discovered during this pass is an inactive project named "Gems Updates"; it was not reused for PostFlow.
-- Do not create an account backend by assumption: first confirm whether the user wants a PostFlow login at all or simply a local-only extension. If login is wanted, implement authentication only; no billing or subscription entitlements.
-- The new account UI has not yet been browser-tested.
+- User confirmed that login is required for each PostFlow profile and selected: full-screen login, create account, login, password reset, persistent session, logout, route guard, and cross-device campaign/group sync.
+- Added a full-screen auth gate and client flows for email/password signup, login, password recovery, refreshable persisted sessions, and logout. The workspace is inert behind the gate until a session is validated.
+- Added a dedicated-project configuration placeholder at `extension/supabase-config.js`; it intentionally contains no project URL or key. No fake login is allowed. Authentication will remain blocked until the user configures a dedicated PostFlow Supabase project.
+- Added `supabase/postflow_schema.sql` for user-owned profiles, campaigns and groups with row-level security. It must only be run in a dedicated PostFlow project. The inactive "Gems Updates" project has not been reused.
+- Added Supabase host permission and a visible logout control. No billing or subscriptions are included.
+- **Not yet complete:** configure a dedicated PostFlow Supabase project, apply and verify the schema, connect actual cloud read/write sync for campaigns/groups, and test auth/session flows in Chrome. Do not present this scaffold as production-ready.
 
 ## Status
 
