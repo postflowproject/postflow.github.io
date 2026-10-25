@@ -4,7 +4,7 @@ const norm = value => { try { const u = new URL(value.trim()); u.search = ""; u.
 const valid = value => { try { const u = new URL(value); return u.protocol === "https:" && /(^|\.)facebook\.com$/i.test(u.hostname) && /^\/groups\/[^/?#]+/.test(u.pathname); } catch { return false; } };
 const unique = values => [...new Set(values.map(v => v.trim()).filter(Boolean))];
 function status(message) { $("status").textContent = message; }
-function captionKey(value) { return value.trim().replace(/\\s+/g, " ").toLowerCase(); }
+function captionKey(value) { return value.trim().replace(/\s+/g, " ").toLowerCase(); }
 async function getGroupTab() { const [active] = await chrome.tabs.query({active:true,currentWindow:true}); if(active?.url?.startsWith("https://www.facebook.com/groups/")) return active; const tabs = await chrome.tabs.query({url:"https://www.facebook.com/groups/*"}); return tabs.length ? tabs[tabs.length - 1] : null; }
 function parseGroups() { return unique($("groups").value.split(/\r?\n/)); }
 async function load() {
