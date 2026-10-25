@@ -9,7 +9,7 @@ A Chrome extension for preparing Facebook group campaigns and working through a 
 3. Turn on **Developer mode**.
 4. Click **Load unpacked** and choose the repository's `extension` folder.
 5. Sign in to Facebook in the same Chrome profile. If Facebook was already open before installing/updating, reload the Facebook tab.
-6. Open the PostFlow extension and choose the full dashboard.
+6. Click the PostFlow extension icon. It opens (or focuses) the full dashboard in a browser tab.
 
 ## Current features
 
