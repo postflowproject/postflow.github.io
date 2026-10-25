@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PostFlow Group Post Helper",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "Prepare Facebook group posts and choose groups from your open Facebook tab.",
   "permissions": ["storage", "tabs", "activeTab"],
   "host_permissions": ["https://facebook.com/*", "https://www.facebook.com/*"],
