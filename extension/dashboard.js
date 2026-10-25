@@ -1,88 +1,31 @@
-const $ = id => document.getElementById(id);
-const state = { caption: "", groups: [], completed: [], currentIndex: null, history: [] };
-const norm = value => { try { const u = new URL(value.trim()); u.search = ""; u.hash = ""; return u.href.replace(/\/$/, ""); } catch { return ""; } };
-const valid = value => { try { const u = new URL(value); return u.protocol === "https:" && /(^|\.)facebook\.com$/i.test(u.hostname) && /^\/groups\/[^/?#]+/.test(u.pathname); } catch { return false; } };
-const unique = values => [...new Set(values.map(v => v.trim()).filter(Boolean))];
-function status(message) { $("status").textContent = message; }
-function captionKey(value) { return value.trim().replace(/\s+/g, " ").toLowerCase(); }
-async function getGroupTab() { const [active] = await chrome.tabs.query({active:true,currentWindow:true}); if(active?.url?.startsWith("https://www.facebook.com/groups/")) return active; const tabs = await chrome.tabs.query({url:"https://www.facebook.com/groups/*"}); return tabs.length ? tabs[tabs.length - 1] : null; }
-function parseGroups() { return unique($("groups").value.split(/\r?\n/)); }
-async function load() {
- const d = await chrome.storage.local.get(["caption","groups","discoveredGroups","completedGroups","currentGroupIndex","captionHistory","dashboardActivity"]);
- state.caption = d.caption || ""; state.groups = d.discoveredGroups?.length ? d.discoveredGroups : (d.groups || []);
- state.completed = (d.completedGroups || []).map(norm).filter(Boolean); state.currentIndex = Number.isInteger(d.currentGroupIndex) ? d.currentGroupIndex : null;
- state.history = d.dashboardActivity || [];
- $("caption").value = state.caption; $("groups").value = state.groups.join("\n"); render();
-}
-function render() {
- const done = new Set(state.completed); const count = state.groups.filter(g => done.has(norm(g))).length;
- $("total").textContent = state.groups.length; $("done").textContent = count; $("remaining").textContent = state.groups.length-count;
- $("groupPill").textContent = state.groups.length+" groups"; $("length").textContent = $("caption").value.length;
- $("captionCount").textContent = $("caption").value.length+" characters";
- $("groupSummary").textContent = state.groups.length ? count+" of "+state.groups.length+" marked posted" : "No groups saved.";
- const pct = state.groups.length ? Math.round(count/state.groups.length*100) : 0;
- $("progressBar").style.width = pct+"%"; $("progressText").textContent = pct+"% complete";
- const items = state.groups.map((url,i)=>({url,i,done:done.has(norm(url))})).slice(0,100);
- $("activityList").innerHTML = items.length ? items.map(({url,i,done})=>'<div class="activity-item"><div><strong>'+escapeHtml(url)+'</strong><small>Group '+(i+1)+' of '+state.groups.length+'</small></div><span class="state">'+(done?'✓ Marked posted':'○ Pending')+'</span></div>').join("") : '<div class="empty">Nothing here yet. Save a group list to get started.</div>';
-}
-function escapeHtml(s){return s.replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
-async function persist() { await chrome.storage.local.set({caption:state.caption,groups:state.groups,discoveredGroups:state.groups,completedGroups:state.completed,dashboardActivity:state.history}); render(); }
-async function saveCaption(){state.caption=$("caption").value; await chrome.storage.local.set({caption:state.caption}); render(); status("Caption saved locally.");}
-async function saveGroups(){
- const groups=parseGroups(); const invalid=groups.find(g=>!valid(g));
- if(invalid){status("Invalid Facebook group URL: "+invalid);return false;}
- state.groups=groups; state.completed=state.completed.filter(g=>groups.some(v=>norm(v)===g));
- state.history.unshift({message:"Saved group list ("+groups.length+")",time:Date.now()}); state.history=state.history.slice(0,80);
- await persist(); status("Saved "+groups.length+" group(s)."); return true;
-}
-$("caption").addEventListener("input",()=>{ $("captionCount").textContent=$("caption").value.length+" characters"; $("length").textContent=$("caption").value.length; });
+const $=id=>document.getElementById(id);
+const state={caption:"",groups:[],selected:[],completed:[],history:[]};
+const norm=v=>{try{const u=new URL(typeof v==="string"?v:v.url);u.search="";u.hash="";return u.href.replace(/\/$/,"")}catch{return ""}};
+const valid=v=>{try{const u=new URL(norm(v));return u.protocol==="https:"&&/(^|\.)facebook\.com$/i.test(u.hostname)&&/^\/groups\/[^/?#]+/.test(u.pathname)}catch{return false}};
+const uniqueGroups=arr=>{const m=new Map();for(const item of arr){const g=typeof item==="string"?{url:item,name:item}:item;if(!valid(g.url))continue;const url=norm(g.url);if(!m.has(url))m.set(url,{url,name:(g.name||g.title||url).trim(),selected:g.selected!==false});else if(g.name&&m.get(url).name===url)m.get(url).name=g.name;}return [...m.values()]};
+const escapeHtml=s=>String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function status(s){$("status").textContent=s}
+function captionKey(v){return v.trim().replace(/\s+/g," ").toLowerCase()}
+async function activeFacebookTab(){const [t]=await chrome.tabs.query({active:true,currentWindow:true});return t?.url&&/^https:\/\/(www\.)?facebook\.com\//i.test(t.url)?t:null}
+async function load(){const d=await chrome.storage.local.get(["caption","groups","discoveredGroups","selectedGroups","completedGroups","captionHistory","dashboardActivity"]);state.caption=d.caption||"";state.groups=uniqueGroups(d.discoveredGroups?.length?d.discoveredGroups:(d.groups||[]));state.selected=(d.selectedGroups||state.groups.map(g=>g.url)).map(norm);state.completed=(d.completedGroups||[]).map(norm);state.history=d.dashboardActivity||[];$("caption").value=state.caption;render()}
+function render(){const done=new Set(state.completed),sel=new Set(state.selected);$("total").textContent=state.groups.length;$("done").textContent=state.groups.filter(g=>done.has(norm(g))).length;$("remaining").textContent=state.groups.filter(g=>!done.has(norm(g))).length;$("length").textContent=$("caption").value.length;$("captionCount").textContent=$("caption").value.length+" characters";$("groupPill").textContent=state.groups.length+" groups";$("groupSummary").textContent=state.groups.filter(g=>sel.has(norm(g))).length+" selected · "+state.groups.length+" found";const pct=state.groups.length?Math.round(state.groups.filter(g=>done.has(norm(g))).length/state.groups.length*100):0;$("progressBar").style.width=pct+"%";$("progressText").textContent=pct+"% complete";
+const list=$("groupChoices");list.innerHTML=state.groups.length?state.groups.map(g=>'<label class="group-choice"><input type="checkbox" data-group="'+escapeHtml(norm(g))+'" '+(sel.has(norm(g))?"checked":"")+'><span class="group-icon" aria-hidden="true">👥</span><span class="group-name">'+escapeHtml(g.name)+'</span><span class="group-status">'+(done.has(norm(g))?"✓ Posted":"")+'</span></label>').join(""):'<div class="empty">Open Facebook, then click “Scan this tab” to find group links loaded on that page.</div>';
+$("activityList").innerHTML=state.groups.length?state.groups.map((g,i)=>'<div class="activity-item"><div><strong>'+escapeHtml(g.name)+'</strong><small>Group '+(i+1)+'</small></div><span class="state">'+(done.has(norm(g))?"✓ Marked posted":"○ Pending")+'</span></div>').join(""):'<div class="empty">No groups scanned yet.</div>'}
+async function persist(){state.groups=uniqueGroups(state.groups);await chrome.storage.local.set({groups:state.groups.map(g=>g.url),discoveredGroups:state.groups,selectedGroups:state.selected,completedGroups:state.completed,dashboardActivity:state.history});render()}
+async function saveCaption(){state.caption=$("caption").value;await chrome.storage.local.set({caption:state.caption});render();status("Caption saved locally.")}
+$("caption").addEventListener("input",()=>{$("captionCount").textContent=$("caption").value.length+" characters";$("length").textContent=$("caption").value.length});
 $("save").addEventListener("click",saveCaption);
-$("clearCaption").addEventListener("click",()=>{$("caption").value="";state.caption="";saveCaption();});
-$("saveGroups").addEventListener("click",saveGroups);
+$("clearCaption").addEventListener("click",()=>{$("caption").value="";saveCaption()});
 $("refresh").addEventListener("click",()=>load().then(()=>status("Workspace refreshed.")));
-$("scan").addEventListener("click",async()=>{
- const tab=await getGroupTab();
- if(tab?.url?.startsWith("https://www.facebook.com/groups/")){
-  try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_SCAN_GROUPS"});if(r?.warning)return status(r.warning);
-   state.groups=unique([...state.groups,...(r?.groups||[])]);$("groups").value=state.groups.join("\n");await saveGroups();status("Scanned current page. Review the list and save.");}
-  catch{status("Refresh the Facebook Groups tab and retry.");}
- }else{await chrome.tabs.create({url:"https://www.facebook.com/groups/",active:true});status("Opened Facebook Groups. Load the page, then return and scan.");}
-});
-$("fill").addEventListener("click",async()=>{
- const caption=$("caption").value.trim(); if(!caption)return status("Write a caption first.");
- const tab=await getGroupTab();
- if(!tab?.id||!tab.url?.startsWith("https://www.facebook.com/groups/"))return status("Open a Facebook Group first.");
- const data = await chrome.storage.local.get(["captionHistory"]);
- const key = captionKey(caption); const history = data.captionHistory || [];
- if (history.some(item => item.key === key)) {
-  if (!confirm("This exact caption was used before in PostFlow. Continue only if this is intentional and appropriate for the group.")) return status("Cancelled. Edit the caption or choose another group.");
- }
- try {
-  const r = await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_FILL_CAPTION",caption});
-  if (r?.ok) {
-   state.caption=caption;
-   history.unshift({key,caption,time:Date.now()});
-   await chrome.storage.local.set({caption,captionHistory:history.slice(0,100)});
-   status("Caption filled. Add your video and review before publishing.");
-  } else status(r?.message||"Couldn't find a visible composer.");
- } catch { status("Refresh the Facebook Group tab and try again."); }
-});
-$("openNext").addEventListener("click",async()=>{
- if(!(await saveGroups()))return;
- const completed=new Set(state.completed); const i=state.groups.findIndex(g=>!completed.has(norm(g)));
- if(i<0)return status("All groups are marked posted. Reset progress to start again.");
- state.currentIndex=i;await chrome.storage.local.set({currentGroupIndex:i,nextIndex:(i+1)%state.groups.length});
- await chrome.tabs.create({url:state.groups[i],active:true});status("Opened group "+(i+1)+". Review, attach media, and publish manually.");
-});
-$("mark").addEventListener("click",async()=>{
- const tab=await getGroupTab(); if(!tab?.url||!valid(tab.url))return status("Open the Facebook group you just posted in first.");
- const url=norm(tab.url); if(!state.groups.some(g=>norm(g)===url))return status("This group is not in the saved list.");
- if(!state.completed.includes(url))state.completed.push(url);
- state.history.unshift({message:"Manually marked posted: "+url,time:Date.now()});state.history=state.history.slice(0,80);
- await persist();status("Marked posted. This is a manual record, not Facebook verification.");
-});
-$("reset").addEventListener("click",async()=>{if(!confirm("Reset all PostFlow progress? This will not delete Facebook posts."))return;state.completed=[];state.history.unshift({message:"Progress reset",time:Date.now()});await persist();status("Progress reset.");});
-$("export").addEventListener("click",()=>{const blob=new Blob([parseGroups().join("\n")+"\n"],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="postflow-groups.txt";a.click();URL.revokeObjectURL(a.href);status("Exported group list.");});
+$("scan").addEventListener("click",async()=>{const tab=await activeFacebookTab();if(!tab)return status("Open Facebook in a normal tab first, then scan again.");try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_SCAN_GROUPS"});if(r?.warning)return status(r.warning);if(!r?.groupDetails?.length)return status("No group links found on this page. Open Facebook Groups or your groups list, scroll to load more, then scan again.");const before=state.groups.length;state.groups=uniqueGroups([...state.groups,...r.groupDetails]);const oldSel=new Set(state.selected);for(const g of state.groups)if(!oldSel.has(norm(g))&&r.groupDetails.some(x=>norm(x)===norm(g)))state.selected.push(norm(g));await persist();status("Found "+(state.groups.length-before)+" new group(s). Tick the groups you want.");}catch{status("Refresh this Facebook tab, then try scanning again. If the tab was open before installing PostFlow, reload it first.")}});
+$("groupChoices").addEventListener("change",async e=>{const input=e.target.closest("input[data-group]");if(!input)return;const url=input.dataset.group;state.selected=input.checked?[...new Set([...state.selected,url])]:state.selected.filter(x=>x!==url);await chrome.storage.local.set({selectedGroups:state.selected});render()});
+$("selectAll").addEventListener("click",async()=>{state.selected=state.groups.map(g=>norm(g));await chrome.storage.local.set({selectedGroups:state.selected});render();status("All scanned groups selected.")});
+$("selectNone").addEventListener("click",async()=>{state.selected=[];await chrome.storage.local.set({selectedGroups:[]});render();status("Selection cleared.")});
+$("openNext").addEventListener("click",async()=>{const chosen=state.groups.filter(g=>state.selected.includes(norm(g.url))&&!state.completed.includes(norm(g.url)));if(!chosen.length)return status("Select at least one unfinished group first.");const g=chosen[0];await chrome.tabs.create({url:g.url,active:true});status("Opened "+g.name+". Review, attach media, and publish manually.")});
+$("fill").addEventListener("click",async()=>{const caption=$("caption").value.trim();if(!caption)return status("Write a caption first.");const tab=await activeFacebookTab();if(!tab)return status("Open the chosen Facebook group in a tab first.");const d=await chrome.storage.local.get(["captionHistory"]);const history=d.captionHistory||[],key=captionKey(caption);if(history.some(x=>x.key===key)&&!confirm("This exact caption was used before in PostFlow. Continue only if intentional and appropriate for the group."))return status("Cancelled.");try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_FILL_CAPTION",caption});if(!r?.ok)return status(r?.message||"Couldn't find a visible composer.");history.unshift({key,caption,time:Date.now()});await chrome.storage.local.set({caption,captionHistory:history.slice(0,100)});status("Caption filled. Add media and review before publishing.");}catch{status("Reload the Facebook tab and open its post composer first.")}});
+$("mark").addEventListener("click",async()=>{const tab=await activeFacebookTab();if(!tab||!valid(tab.url))return status("Open the group you just posted in first.");const url=norm(tab.url);if(!state.groups.some(g=>norm(g.url)===url))return status("This group hasn't been scanned into PostFlow yet.");if(!state.completed.includes(url))state.completed.push(url);state.history.unshift({message:"Manually marked posted: "+url,time:Date.now()});await persist();status("Marked posted manually; Facebook publication is not verified.")});
+$("reset").addEventListener("click",async()=>{if(!confirm("Reset PostFlow progress? This will not delete Facebook posts."))return;state.completed=[];await persist();status("Progress reset.")});
+$("export").addEventListener("click",()=>{const blob=new Blob([state.groups.map(g=>g.url).join("\n")],{type:"text/plain"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="postflow-groups.txt";a.click();URL.revokeObjectURL(a.href)});
 $("import").addEventListener("click",()=>$("file").click());
-$("file").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;const text=await f.text();$("groups").value=unique(text.split(/\r?\n/)).join("\n");await saveGroups();e.target.value="";});
+$("file").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;state.groups=uniqueGroups([...state.groups,...(await f.text()).split(/\r?\n/).filter(Boolean)]);state.selected=[...new Set([...state.selected,...state.groups.map(g=>norm(g.url))])];await persist();status("Imported group URLs.");e.target.value=""});
 load().catch(()=>status("Couldn't load local workspace data."));
