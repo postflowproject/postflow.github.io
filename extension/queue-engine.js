@@ -11,8 +11,10 @@
   const normalize = (value) => {
     try {
       const u = new URL(typeof value === "string" ? value : value?.url);
-      if (u.protocol !== "https:" || !/(^|\.)facebook\.com$/i.test(u.hostname) ||
-          !/^\/groups\/[^/?#]+/i.test(u.pathname)) return "";
+      const groupPath = u.pathname.match(/^\/groups\/([^/]+)\/?/i);
+      if (u.protocol !== "https:" || !/(^|\.)facebook\.com$/i.test(u.hostname) || !groupPath) return "";
+      // Canonicalize to the group root so post URLs match the group's main page.
+      u.pathname = "/groups/" + groupPath[1];
       u.search = "";
       u.hash = "";
       return u.href.replace(/\/$/, "");
