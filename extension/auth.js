@@ -1,18 +1,180 @@
 (() => {
-const cfg=window.POSTFLOW_SUPABASE_CONFIG||{}, gate=document.getElementById("authGate"), workspace=document.getElementById("workspace"), form=document.getElementById("authForm"), email=document.getElementById("authEmail"), password=document.getElementById("authPassword"), confirmWrap=document.getElementById("authConfirmWrap"), confirmPassword=document.getElementById("authConfirm"), submit=document.getElementById("authSubmit"), modeButton=document.getElementById("authMode"), forgot=document.getElementById("authForgot"), title=document.getElementById("authTitle"), subtitle=document.getElementById("authSubtitle"), message=document.getElementById("authMessage");
-const configured=Boolean(cfg.url&&cfg.publishableKey), key="postflowAuthSession"; let mode="login",session=null;
-const base=()=>String(cfg.url||"").replace(/[/]$/,"");
-function say(t,ok=false){message.textContent=t;message.classList.toggle("success",ok)}
-function showGate(){gate.hidden=false;workspace.inert=true} function showWorkspace(){gate.hidden=true;workspace.inert=false}
-function render(){const signup=mode==="signup",reset=mode==="reset";confirmWrap.hidden=!signup;confirmPassword.required=signup;password.hidden=reset;password.required=!reset;password.autocomplete=signup?"new-password":"current-password";title.textContent=signup?"Create your account":reset?"Reset your password":"Welcome back";subtitle.textContent=signup?"Create a free PostFlow account to sync campaigns and groups across devices.":reset?"We'll email you a secure password reset link.":"Sign in to access your workspace and sync campaigns across devices.";submit.textContent=signup?"Create account":reset?"Send reset link":"Sign in";modeButton.textContent=signup?"Already have an account? Sign in":"Create account";forgot.hidden=signup||reset;say("")}
-async function request(path,body){const res=await fetch(base()+path,{method:"POST",headers:{"Content-Type":"application/json",apikey:cfg.publishableKey},body:JSON.stringify(body)});const data=await res.json().catch(()=>({}));if(!res.ok)throw new Error(data.msg||data.message||data.error_description||data.error||"Request failed. Please try again.");return data}
-async function saveSession(next){session=next;if(next)await chrome.storage.local.set({[key]:next});else await chrome.storage.local.remove(key)}
-async function refresh(saved){if(!saved?.refresh_token)return null;try{const data=await request("/auth/v1/token?grant_type=refresh_token",{refresh_token:saved.refresh_token});await saveSession(data);return data}catch{await saveSession(null);return null}}
-async function enter(next){await saveSession(next);if(!next?.access_token){showGate();return}showWorkspace();window.dispatchEvent(new CustomEvent("postflow:authenticated",{detail:{user:next.user,accessToken:next.access_token}}))}
-document.getElementById("logout")?.addEventListener("click",()=>window.PostFlowAuth.logout());
-modeButton.addEventListener("click",()=>{mode=mode==="signup"?"login":"signup";render()});forgot.addEventListener("click",()=>{mode="reset";render()});
-form.addEventListener("submit",async e=>{e.preventDefault();if(!configured)return say("Setup needed: connect a dedicated PostFlow Supabase project. No fake login is enabled.");const mail=email.value.trim(),pw=password.value;if(!mail)return say("Enter your email address.");if(mode!=="reset"&&pw.length<8)return say("Use a password with at least 8 characters.");if(mode==="signup"&&pw!==confirmPassword.value)return say("The passwords don't match.");submit.disabled=true;const oldMode=mode;submit.textContent="Please wait…";say("");try{if(oldMode==="reset"){await request("/auth/v1/recover",{email:mail});say("If an account exists for that email, a password reset link has been sent.",true)}else if(oldMode==="signup"){const data=await request("/auth/v1/signup",{email:mail,password:pw});if(data.access_token)await enter(data);say("Account created. Check your email if confirmation is required.",true)}else{const data=await request("/auth/v1/token?grant_type=password",{email:mail,password:pw});await enter(data)}}catch(err){say(err.message||"Couldn't complete the request.")}finally{submit.disabled=false;submit.textContent=mode==="signup"?"Create account":mode==="reset"?"Send reset link":"Sign in"}});
-window.addEventListener("postflow:logout",async()=>{try{if(session?.access_token&&configured)await fetch(base()+"/auth/v1/logout",{method:"POST",headers:{apikey:cfg.publishableKey,Authorization:"Bearer "+session.access_token}})}catch{}await enter(null);mode="login";render()});
-async function init(){showGate();render();if(!configured){say("Setup needed: connect a dedicated PostFlow Supabase project. No fake login is enabled.");return}const stored=await chrome.storage.local.get(key);let current=stored[key];if(current?.expires_at&&current.expires_at*1000<Date.now()+30000)current=await refresh(current);if(current?.access_token){try{const res=await fetch(base()+"/auth/v1/user",{headers:{apikey:cfg.publishableKey,Authorization:"Bearer "+current.access_token}});if(res.ok){current.user=await res.json();await enter(current);return}}catch{}current=await refresh(current);if(current?.access_token){await enter(current);return}}await saveSession(null);showGate()}
-window.PostFlowAuth={getSession:()=>session,getAccessToken:()=>session?.access_token||null,getUser:()=>session?.user||null,logout:()=>window.dispatchEvent(new Event("postflow:logout")),isConfigured:()=>configured};init().catch(()=>{showGate();say("Couldn't initialize sign-in. Check the account service configuration.")});
+  "use strict";
+  const cfg = window.POSTFLOW_FIREBASE_CONFIG || {};
+  const gate = document.getElementById("authGate");
+  const workspace = document.getElementById("workspace");
+  const form = document.getElementById("authForm");
+  const email = document.getElementById("authEmail");
+  const password = document.getElementById("authPassword");
+  const confirmWrap = document.getElementById("authConfirmWrap");
+  const confirmPassword = document.getElementById("authConfirm");
+  const submit = document.getElementById("authSubmit");
+  const modeButton = document.getElementById("authMode");
+  const forgot = document.getElementById("authForgot");
+  const title = document.getElementById("authTitle");
+  const subtitle = document.getElementById("authSubtitle");
+  const message = document.getElementById("authMessage");
+  const configured = Boolean(cfg.apiKey && cfg.projectId);
+  const storageKey = "postflowFirebaseSession";
+  let mode = "login";
+  let session = null;
+
+  const authUrl = path => "https://identitytoolkit.googleapis.com/v1/" + path + "?key=" + encodeURIComponent(cfg.apiKey || "");
+  const tokenUrl = () => "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(cfg.apiKey || "");
+  function say(text, ok = false) { message.textContent = text; message.classList.toggle("success", ok); }
+  function showGate() { gate.hidden = false; workspace.inert = true; }
+  function showWorkspace() { gate.hidden = true; workspace.inert = false; }
+  function userFrom(data) { return { uid: data.localId || data.userId || data.uid, email: data.email || "" }; }
+  function friendlyError(code) {
+    const map = {
+      EMAIL_EXISTS: "An account already exists for this email. Try signing in.",
+      INVALID_EMAIL: "Enter a valid email address.",
+      INVALID_PASSWORD: "The email or password is incorrect.",
+      EMAIL_NOT_FOUND: "The email or password is incorrect.",
+      INVALID_LOGIN_CREDENTIALS: "The email or password is incorrect.",
+      WEAK_PASSWORD: "Choose a stronger password (at least 8 characters).",
+      USER_DISABLED: "This account has been disabled.",
+      TOO_MANY_ATTEMPTS_TRY_LATER: "Too many attempts. Wait a while and try again.",
+      OPERATION_NOT_ALLOWED: "Email/password sign-in is not enabled in the Firebase project yet.",
+      API_KEY_INVALID: "The Firebase API key is invalid. Check firebase-config.js.",
+      PROJECT_NOT_FOUND: "The Firebase project was not found. Check the project configuration."
+    };
+    return map[code] || String(code || "Request failed. Check your connection and Firebase configuration.").replaceAll("_", " ").toLowerCase();
+  }
+  async function request(url, body, formEncoded = false) {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": formEncoded ? "application/x-www-form-urlencoded" : "application/json" },
+      body: formEncoded ? new URLSearchParams(body).toString() : JSON.stringify(body)
+    });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(friendlyError(data.error?.message || data.error?.errors?.[0]?.message));
+    return data;
+  }
+  async function saveSession(next) {
+    session = next || null;
+    if (session) await chrome.storage.local.set({ [storageKey]: session });
+    else await chrome.storage.local.remove(storageKey);
+  }
+  async function refresh(saved) {
+    if (!saved?.refreshToken) return null;
+    try {
+      const data = await request(tokenUrl(), { grant_type: "refresh_token", refresh_token: saved.refreshToken }, true);
+      const next = {
+        idToken: data.id_token,
+        refreshToken: data.refresh_token || saved.refreshToken,
+        expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
+        user: { uid: data.user_id || saved.user?.uid, email: saved.user?.email || "" }
+      };
+      await saveSession(next);
+      return next;
+    } catch (error) {
+      if (/network|fetch/i.test(error.message)) return saved;
+      await saveSession(null);
+      return null;
+    }
+  }
+  async function validate(next) {
+    const data = await request(authUrl("accounts:lookup"), { idToken: next.idToken });
+    const user = data.users?.[0];
+    if (!user) throw new Error("This session is no longer valid. Sign in again.");
+    next.user = { uid: user.localId, email: user.email || next.user?.email || "" };
+    return next;
+  }
+  async function enter(next) {
+    await saveSession(next);
+    if (!next?.idToken) { showGate(); return; }
+    showWorkspace();
+    window.dispatchEvent(new CustomEvent("postflow:authenticated", {
+      detail: { user: next.user, accessToken: next.idToken, provider: "firebase" }
+    }));
+  }
+  function render() {
+    const signup = mode === "signup", reset = mode === "reset";
+    confirmWrap.hidden = !signup;
+    confirmPassword.required = signup;
+    password.hidden = reset;
+    password.required = !reset;
+    password.autocomplete = signup ? "new-password" : "current-password";
+    title.textContent = signup ? "Create your account" : reset ? "Reset your password" : "Welcome back";
+    subtitle.textContent = signup
+      ? "Create a free PostFlow account to sync campaigns and groups across devices."
+      : reset ? "We'll email you a secure password reset link."
+      : "Sign in to access your workspace and sync campaigns across devices.";
+    submit.textContent = signup ? "Create account" : reset ? "Send reset link" : "Sign in";
+    modeButton.textContent = signup ? "Already have an account? Sign in" : "Create account";
+    forgot.hidden = signup || reset;
+    say("");
+  }
+  modeButton.addEventListener("click", () => { mode = mode === "signup" ? "login" : "signup"; render(); });
+  forgot.addEventListener("click", () => { mode = "reset"; render(); });
+  form.addEventListener("submit", async event => {
+    event.preventDefault();
+    if (!configured) return say("Firebase setup needed: fill in extension/firebase-config.js and enable Email/Password sign-in in Firebase Console.");
+    const mail = email.value.trim(), pw = password.value;
+    if (!mail) return say("Enter your email address.");
+    if (mode !== "reset" && pw.length < 8) return say("Use a password with at least 8 characters.");
+    if (mode === "signup" && pw !== confirmPassword.value) return say("The passwords don't match.");
+    const requestedMode = mode;
+    submit.disabled = true; submit.textContent = "Please wait…"; say("");
+    try {
+      if (requestedMode === "reset") {
+        await request(authUrl("accounts:sendOobCode"), { requestType: "PASSWORD_RESET", email: mail });
+        say("If an account exists for that email, a password reset email has been sent.", true);
+      } else {
+        const endpoint = requestedMode === "signup" ? "accounts:signUp" : "accounts:signInWithPassword";
+        const data = await request(authUrl(endpoint), { email: mail, password: pw, returnSecureToken: true });
+        const next = {
+          idToken: data.idToken, refreshToken: data.refreshToken,
+          expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
+          user: userFrom(data)
+        };
+        await enter(next);
+        if (requestedMode === "signup") say("Account created. Check your email if Firebase requires email verification.", true);
+      }
+    } catch (error) { say(error.message || "Couldn't complete the request."); }
+    finally {
+      submit.disabled = false;
+      submit.textContent = mode === "signup" ? "Create account" : mode === "reset" ? "Send reset link" : "Sign in";
+    }
+  });
+  async function logout() {
+    await saveSession(null);
+    mode = "login"; render(); showGate();
+  }
+  document.getElementById("logout")?.addEventListener("click", logout);
+  window.addEventListener("postflow:logout", logout);
+  async function init() {
+    showGate(); render();
+    if (!configured) {
+      say("Firebase setup needed: fill in extension/firebase-config.js and enable Email/Password sign-in in Firebase Console.");
+      return;
+    }
+    const stored = await chrome.storage.local.get(storageKey);
+    let current = stored[storageKey];
+    if (current?.expiresAt && current.expiresAt < Date.now() + 60000) current = await refresh(current);
+    if (current?.idToken) {
+      try { current = await validate(current); await enter(current); return; }
+      catch (error) {
+        if (/network|fetch/i.test(error.message)) {
+          await enter(current);
+          say("Offline: showing this saved session. Cloud sync will resume when you're connected.", true);
+          return;
+        }
+        current = await refresh(current);
+        if (current?.idToken) {
+          try { current = await validate(current); await enter(current); return; } catch {}
+        }
+      }
+    }
+    await saveSession(null); showGate();
+  }
+  window.PostFlowAuth = {
+    getSession: () => session,
+    getAccessToken: () => session?.idToken || null,
+    getUser: () => session?.user || null,
+    logout: () => window.dispatchEvent(new Event("postflow:logout")),
+    isConfigured: () => configured
+  };
+  init().catch(() => { showGate(); say("Couldn't initialize sign-in. Check Firebase configuration and network access."); });
 })();
