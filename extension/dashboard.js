@@ -33,3 +33,56 @@ $("import").addEventListener("click",()=>$("file").click());
 $("file").addEventListener("change",async e=>{const f=e.target.files?.[0];if(!f)return;const imported=uniqueGroups((await f.text()).split(/\r?\n/).filter(Boolean));state.groups=uniqueGroups([...state.groups,...imported]);state.selected=[...new Set([...state.selected,...imported.map(g=>norm(g))])];await persist();status("Imported group URLs.");e.target.value=""});
 $("mediaFile").addEventListener("change",e=>{const f=e.target.files?.[0];$("mediaInfo").textContent=f?("Selected for this dashboard session: "+f.name+" · "+(f.size/1024/1024).toFixed(2)+" MB. Attach it manually on Facebook."): "Choose an image/video to keep its name visible while this dashboard is open. Attach it manually on Facebook.";});
 load().catch(()=>status("Couldn't load local workspace data."));
+
+
+let previewedVariations = [];
+function renderCaptionHistory() {
+  const target = $("captionHistoryList");
+  if (!target) return;
+  chrome.storage.local.get(["captionHistory"]).then(data => {
+    const items = (data.captionHistory || []).slice(0, 30);
+    target.innerHTML = items.length ? items.map((item, index) =>
+      '<div class="history-item"><div class="history-copy"><strong>' + esc(item.caption || "") +
+      '</strong><small>' + esc(new Date(item.time || Date.now()).toLocaleString()) +
+      '</small></div><button class="button secondary" data-use-history="' + index + '">Use caption</button></div>'
+    ).join("") : '<div class="empty">No caption history yet. Fill a caption on Facebook to add it here.</div>';
+  });
+}
+$("previewVariations")?.addEventListener("click", () => {
+  previewedVariations = [...new Set($("variationInput").value.split(/\r?\n/).map(x => x.trim()).filter(Boolean))].slice(0, 50);
+  $("variationList").innerHTML = previewedVariations.length ? previewedVariations.map((caption, index) =>
+    '<div class="variation-item"><div class="variation-copy"><strong>Variation ' + (index + 1) + '</strong><p>' + esc(caption) + '</p><small>' + caption.length + ' characters</small></div><button class="button secondary" data-use-variation="' + index + '">Use</button></div>'
+  ).join("") : '<div class="empty">Paste at least one caption, with each variation on a separate line.</div>';
+  status(previewedVariations.length + " caption variation(s) ready to review.");
+});
+$("clearVariations")?.addEventListener("click", () => {
+  $("variationInput").value = "";
+  previewedVariations = [];
+  $("variationList").innerHTML = '<div class="empty">Add captions, one per line, then preview.</div>';
+});
+$("variationList")?.addEventListener("click", async event => {
+  const button = event.target.closest("[data-use-variation]");
+  if (!button) return;
+  const caption = previewedVariations[Number(button.dataset.useVariation)];
+  if (typeof caption !== "string") return;
+  $("caption").value = caption;
+  await saveDraft();
+  status("Selected variation loaded into the composer. Review before use.");
+});
+$("captionHistoryList")?.addEventListener("click", async event => {
+  const button = event.target.closest("[data-use-history]");
+  if (!button) return;
+  const data = await chrome.storage.local.get(["captionHistory"]);
+  const item = (data.captionHistory || []).slice(0, 30)[Number(button.dataset.useHistory)];
+  if (!item) return;
+  $("caption").value = item.caption || "";
+  await saveDraft();
+  status("Previous caption loaded into the composer.");
+});
+$("clearCaptionHistory")?.addEventListener("click", async () => {
+  if (!confirm("Clear locally saved caption history? This does not delete posts or drafts.")) return;
+  await chrome.storage.local.set({captionHistory: []});
+  renderCaptionHistory();
+  status("Caption history cleared.");
+});
+renderCaptionHistory();
