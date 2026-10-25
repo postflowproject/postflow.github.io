@@ -3,14 +3,31 @@
   "name": "PostFlow Group Post Helper",
   "version": "0.3.0",
   "description": "Prepare Facebook group posts and choose groups from your open Facebook tab.",
-  "permissions": ["storage", "tabs", "activeTab"],
-  "host_permissions": ["https://facebook.com/*", "https://www.facebook.com/*"],
-  "background": { "service_worker": "background.js" },
-  "action": { "default_title": "Open PostFlow workspace" },
+  "permissions": [
+    "storage",
+    "tabs",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://facebook.com/*",
+    "https://www.facebook.com/*",
+    "https://*.supabase.co/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Open PostFlow workspace"
+  },
   "content_scripts": [
     {
-      "matches": ["https://facebook.com/*", "https://www.facebook.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://facebook.com/*",
+        "https://www.facebook.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_idle"
     }
   ]
