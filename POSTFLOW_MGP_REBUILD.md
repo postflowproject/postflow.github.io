@@ -53,14 +53,14 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - This is a first working foundation, not a full clone: it does not auto-publish, upload media, sync across devices, or call a remote backend. Facebook publication is not verified.
 - Browser test and automated syntax/behaviour tests remain outstanding.
 
-## Account and authentication pass (2026-10-26)
+## Account, Firebase authentication and cloud sync (2026-10-26)
 
-- User confirmed that login is required for each PostFlow profile and selected: full-screen login, create account, login, password reset, persistent session, logout, route guard, and cross-device campaign/group sync.
-- Added a full-screen auth gate and client flows for email/password signup, login, password recovery, refreshable persisted sessions, and logout. The workspace is inert behind the gate until a session is validated.
-- Added a dedicated-project configuration placeholder at `extension/supabase-config.js`; it intentionally contains no project URL or key. No fake login is allowed. Authentication will remain blocked until the user configures a dedicated PostFlow Supabase project.
-- Added `supabase/postflow_schema.sql` for user-owned profiles, campaigns and groups with row-level security. It must only be run in a dedicated PostFlow project. The inactive "Gems Updates" project has not been reused.
-- Added Supabase host permission and a visible logout control. No billing or subscriptions are included.
-- **Not yet complete:** configure a dedicated PostFlow Supabase project, apply and verify the schema, connect actual cloud read/write sync for campaigns/groups, and test auth/session flows in Chrome. Do not present this scaffold as production-ready.
+- The account UI supports full-screen login, account creation, password reset, remembered sessions, logout and a workspace gate.
+- Replaced the Supabase client scaffold with Firebase Authentication's email/password REST API. Public Firebase Web app settings belong in `extension/firebase-config.js`; no service-account key belongs in the extension.
+- Added Firestore REST sync for the current workspace keys (campaigns, groups, selection/progress, drafts, caption history and review queue). The first sign-in seeds a new cloud workspace from local data; an existing cloud workspace is loaded into the current Chrome profile.
+- Added `firebase/firestore.rules` restricting workspace access to the matching authenticated UID.
+- Removed the old Supabase placeholder/schema. No billing or subscription logic is included.
+- **Not yet live-tested:** this repository still needs a real Firebase project configuration, Email/Password provider enabled, and a default Firestore database with the rules deployed. Chrome-extension runtime/browser testing remains outstanding. The Firebase REST approach is used here so the extension doesn't need a bundled SDK/build step.
 
 ## Status
 
@@ -70,6 +70,6 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - [ ] Finish tracing exact remote request/response contracts; current audit is an inventory, not a complete contract map.
 - [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
 - [x] Draft a PostFlow-owned campaign/group/job schema and state machine in `REFERENCE_EXTENSION_TRACE.md`.
-- [ ] Implement the remote schema/API (not configured yet).\n- [x] Add an honest account/subscription UI shell; controls remain disabled until a dedicated PostFlow service exists.\n- [ ] Confirm whether the user wants login/account support or a local-only extension; if login is wanted, implement authentication only (no billing/subscriptions).
+- [x] Add Firebase Authentication client flows and Firestore REST workspace sync scaffold.\n- [x] Add per-user Firestore security rules.\n- [ ] Configure a real Firebase project and test account creation, login, password reset, session refresh/logout and cross-device sync in Chrome.
 - [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
 - [ ] Integrate the extension and validate end-to-end.
