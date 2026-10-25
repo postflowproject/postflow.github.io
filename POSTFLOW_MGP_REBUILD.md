@@ -34,7 +34,7 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 
 ### Phase 2 — build the PostFlow foundation
 1. Keep the current dashboard and extension as the UI baseline.
-2. Add a small API layer and persistent database for campaigns, groups, queue jobs and job results.
+2. Add a small API layer and persistent database for campaigns, groups, queue jobs and job results only if cross-device accounts/sync are actually wanted.
 3. Add a job lifecycle: queued → running → succeeded/failed/cancelled, with timestamps, retry limits and visible errors.
 4. Keep Facebook session-dependent actions in the user's browser; do not send Facebook cookies/session tokens to the backend.
 5. Require review and explicit user action for publishing; respect group permissions, platform limits and user safety.
@@ -56,9 +56,9 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 ## Account and subscription UI pass (2026-10-26)
 
 - Added an Account & Subscription section to the extension dashboard, with sign-in, account creation, password recovery, and current-plan presentation.
-- Authentication controls are intentionally disabled until a PostFlow-owned auth/billing service is configured. No local fake login, fabricated plan state, vendor endpoint impersonation, or password storage was added.
+- Account controls are intentionally disabled until a real account service is configured. The user clarified that billing and subscriptions are not wanted; do not implement paid plans, subscription checks, or payment screens. No local fake login, vendor endpoint impersonation, or password storage was added.
 - The only connected Supabase project discovered during this pass is an inactive project named "Gems Updates"; it was not reused for PostFlow.
-- The next account milestone is to provision/confirm a dedicated PostFlow backend, implement real auth/session handling and server-verified plan entitlements, then enable the UI only after integration tests.
+- Do not create an account backend by assumption: first confirm whether the user wants a PostFlow login at all or simply a local-only extension. If login is wanted, implement authentication only; no billing or subscription entitlements.
 - The new account UI has not yet been browser-tested.
 
 ## Status
@@ -69,6 +69,6 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - [ ] Finish tracing exact remote request/response contracts; current audit is an inventory, not a complete contract map.
 - [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
 - [x] Draft a PostFlow-owned campaign/group/job schema and state machine in `REFERENCE_EXTENSION_TRACE.md`.
-- [ ] Implement the remote schema/API (not configured yet).\n- [x] Add an honest account/subscription UI shell; controls remain disabled until a dedicated PostFlow service exists.\n- [ ] Implement real PostFlow authentication, password recovery, and server-verified subscription entitlements.
+- [ ] Implement the remote schema/API (not configured yet).\n- [x] Add an honest account/subscription UI shell; controls remain disabled until a dedicated PostFlow service exists.\n- [ ] Confirm whether the user wants login/account support or a local-only extension; if login is wanted, implement authentication only (no billing/subscriptions).
 - [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
 - [ ] Integrate the extension and validate end-to-end.
