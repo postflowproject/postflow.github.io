@@ -4,6 +4,7 @@ const norm = value => { try { const u = new URL(value.trim()); u.search = ""; u.
 const valid = value => { try { const u = new URL(value); return u.protocol === "https:" && /(^|\.)facebook\.com$/i.test(u.hostname) && /^\/groups\/[^/?#]+/.test(u.pathname); } catch { return false; } };
 const unique = values => [...new Set(values.map(v => v.trim()).filter(Boolean))];
 function status(message) { $("status").textContent = message; }
+function captionKey(value) { return value.trim().replace(/\\s+/g, " ").toLowerCase(); }
 async function getGroupTab() { const [active] = await chrome.tabs.query({active:true,currentWindow:true}); if(active?.url?.startsWith("https://www.facebook.com/groups/")) return active; const tabs = await chrome.tabs.query({url:"https://www.facebook.com/groups/*"}); return tabs.length ? tabs[tabs.length - 1] : null; }
 function parseGroups() { return unique($("groups").value.split(/\r?\n/)); }
 async function load() {
@@ -51,8 +52,20 @@ $("fill").addEventListener("click",async()=>{
  const caption=$("caption").value.trim(); if(!caption)return status("Write a caption first.");
  const tab=await getGroupTab();
  if(!tab?.id||!tab.url?.startsWith("https://www.facebook.com/groups/"))return status("Open a Facebook Group first.");
- try{const r=await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_FILL_CAPTION",caption});if(r?.ok){state.caption=caption;await chrome.storage.local.set({caption});status("Caption filled. Add your video and review before publishing.");}else status(r?.message||"Couldn't find a visible composer.");}
- catch{status("Refresh the Facebook Group tab and try again.");}
+ const data = await chrome.storage.local.get(["captionHistory"]);
+ const key = captionKey(caption); const history = data.captionHistory || [];
+ if (history.some(item => item.key === key)) {
+  if (!confirm("This exact caption was used before in PostFlow. Continue only if this is intentional and appropriate for the group.")) return status("Cancelled. Edit the caption or choose another group.");
+ }
+ try {
+  const r = await chrome.tabs.sendMessage(tab.id,{type:"POSTFLOW_FILL_CAPTION",caption});
+  if (r?.ok) {
+   state.caption=caption;
+   history.unshift({key,caption,time:Date.now()});
+   await chrome.storage.local.set({caption,captionHistory:history.slice(0,100)});
+   status("Caption filled. Add your video and review before publishing.");
+  } else status(r?.message||"Couldn't find a visible composer.");
+ } catch { status("Refresh the Facebook Group tab and try again."); }
 });
 $("openNext").addEventListener("click",async()=>{
  if(!(await saveGroups()))return;
