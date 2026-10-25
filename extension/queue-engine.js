@@ -67,7 +67,7 @@
     $("reviewQueueProgress").style.width = (jobs.length ? Math.round(complete / jobs.length * 100) : 0) + "%";
     $("reviewQueueItems").innerHTML = jobs.length ? jobs.map((job, index) => {
       const label = job.status === "completed" ? "✓ Reviewed" : job.status === "opened" ? "↗ Opened" : "○ Pending";
-      return `<div class="activity-item"><div><strong>${index + 1}. ${esc(job.groupName)}</strong><small>${esc(job.caption.slice(0, 110) || "No caption saved")} · ${label}</small></div><div class="campaign-actions"><button class="button ghost" data-queue-up="${esc(job.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} up">↑</button><button class="button ghost" data-queue-down="${esc(job.id)}" ${index === jobs.length - 1 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} down">↓</button><button class="button secondary" data-queue-open="${esc(job.id)}">Open</button><button class="button ghost" data-queue-copy="${esc(job.id)}">Copy caption</button><button class="button ghost" data-queue-done="${esc(job.id)}">${job.status === "completed" ? "Undo" : "Reviewed"}</button></div></div>`;
+      return `<div class="activity-item"><div><strong>${index + 1}. ${esc(job.groupName)}</strong><small>${esc(job.caption.slice(0, 110) || "No caption saved")} · ${label}</small></div><div class="campaign-actions"><button class="button ghost" data-queue-up="${esc(job.id)}" ${index === 0 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} up">↑</button><button class="button ghost" data-queue-down="${esc(job.id)}" ${index === jobs.length - 1 ? "disabled" : ""} aria-label="Move ${esc(job.groupName)} down">↓</button><button class="button secondary" data-queue-open="${esc(job.id)}">Open</button><button class="button ghost" data-queue-copy="${esc(job.id)}">Copy caption</button><button class="button ghost" data-queue-comment="${esc(job.id)}" ${job.firstComment.trim() ? "" : "disabled"}>Copy first comment</button><button class="button ghost" data-queue-done="${esc(job.id)}">${job.status === "completed" ? "Undo" : "Reviewed"}</button></div></div>`;
     }).join("") : '<div class="empty">Select groups and build a queue to begin.</div>';
   }
 
@@ -140,6 +140,18 @@
     }
   }
 
+  async function copyFirstComment(id) {
+    const job = jobs.find(item => item.id === id);
+    if (!job) return;
+    if (!job.firstComment.trim()) return say("No first comment was saved for this queue item.");
+    try {
+      await navigator.clipboard.writeText(job.firstComment);
+      say("First comment copied for " + job.groupName + ". Add it manually after reviewing the post.");
+    } catch {
+      say("Clipboard access was blocked. Copy the first comment manually from the dashboard.");
+    }
+  }
+
   async function openNext() {
     const job = jobs.find(item => item.status === "pending") || jobs.find(item => item.status === "opened");
     if (!job) return say("No pending queue items.");
@@ -184,7 +196,7 @@
     $("reviewQueueItems")?.addEventListener("click", async event => {
       const open = event.target.closest("[data-queue-open]");
       const copy = event.target.closest("[data-queue-copy]");
-      const done = event.target.closest("[data-queue-done]");
+      const comment = event.target.closest("[data-queue-comment]");\n      const done = event.target.closest("[data-queue-done]");
       const up = event.target.closest("[data-queue-up]");
       const down = event.target.closest("[data-queue-down]");
       if (open) await openJob(open.dataset.queueOpen);
