@@ -4,7 +4,6 @@ function pageSafetyMessage() {
     return "Facebook is showing a login, checkpoint, or restriction screen. Resolve it on Facebook yourself first.";
   return "";
 }
-
 function findComposer() {
   return [...document.querySelectorAll('[contenteditable="true"][role="textbox"],[contenteditable="true"]')].find(el=>{
     const r=el.getBoundingClientRect();return r.width>0&&r.height>0&&!el.closest('[aria-hidden="true"],[inert]')&&!el.matches('[aria-disabled="true"]');
@@ -17,7 +16,6 @@ function insertText(el,text){
   el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText",data:text}));
   el.dispatchEvent(new Event("change",{bubbles:true}));
 }
-
 const IGNORED_GROUP_PATHS=new Set(["feeds","discover","joins","create","your_groups","requests","search","notifications","suggested","gaming","watch","events","member_requests","pending","admin"]);
 function normalizeGroupLink(rawHref) {
   try {
@@ -29,35 +27,37 @@ function normalizeGroupLink(rawHref) {
     return u.href;
   } catch { return null; }
 }
-function cleanGroupName(value, url) {
-  const name=String(value||"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().replace(/\s+/g," ");
-  if(!name || name.length>160 || /^\d+$/.test(name)) return "";
-  if(/^https?:\/\//i.test(name) || /facebook\.com\/groups\//i.test(name)) return "";
-  if(/^(see all|view all|groups|join group|visit group|group)$/i.test(name)) return "";
+function normalizeText(value) {
+  return String(value||"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().replace(/\s+/g," ");
+}
+function usableName(value,url) {
+  const name=normalizeText(value);
+  if(!name||name.length>160||/^\d+$/.test(name)||/^https?:\/\//i.test(name)||/facebook\.com\/groups\//i.test(name))return "";
+  if(/^(see all|view all|groups|join group|visit group|group|joined|join|members|posts)$/i.test(name))return "";
   const slug=url?.match(/\/groups\/([^/]+)/)?.[1]||"";
-  if(slug && name.toLowerCase()===slug.toLowerCase()) return "";
+  if(slug&&name.toLowerCase()===slug.toLowerCase())return "";
   return name;
 }
-function groupNameFromAnchor(a, url) {
-  const candidates=[
-    a.querySelector('[dir="auto"]')?.innerText,
-    a.querySelector("strong")?.innerText,
-    a.querySelector("span")?.innerText,
-    a.getAttribute("aria-label"),
-    a.getAttribute("title"),
-    a.innerText
+function extractNameFromCard(anchor,url) {
+  const direct=[
+    anchor.querySelector('[dir="auto"]')?.innerText,
+    anchor.querySelector("strong")?.innerText,
+    anchor.getAttribute("aria-label"),
+    anchor.getAttribute("title"),
+    anchor.innerText
   ];
-  for(const value of candidates) {
-    const name=cleanGroupName(value,url);
-    if(name)return name;
-  }
-  // A nearby group card may contain a title link separate from the URL link.
-  const card=a.closest('[role="article"],[role="listitem"],[role="gridcell"]');
-  if(card) {
-    for(const el of card.querySelectorAll('a[ href], [dir="auto"], strong')) {
-      const name=cleanGroupName(el.innerText||el.getAttribute("aria-label")||el.getAttribute("title"),url);
-      if(name && !/^(join|joined|visit group|view group)$/i.test(name)) return name;
-    }
+  for(const value of direct){const name=usableName(value,url);if(name)return name;}
+  // Facebook often puts the destination link and the human-readable title in sibling elements.
+  let node=anchor;
+  for(let depth=0;node&&depth<6;depth++,node=node.parentElement){
+    const rect=node.getBoundingClientRect();
+    if(depth>0&&(rect.width<100||rect.height<25||rect.height>600))continue;
+    const candidates=[
+      node.querySelector('a[aria-label]')?.getAttribute("aria-label"),
+      node.querySelector('a[title]')?.getAttribute("title"),
+      ...[...node.querySelectorAll('[dir="auto"],h1,h2,h3,h4,strong,[role="heading"]')].slice(0,12).map(el=>el.innerText)
+    ];
+    for(const value of candidates){const name=usableName(value,url);if(name&&!/^(join|joined|visit group|view group|see more)$/i.test(name))return name;}
   }
   return "";
 }
@@ -66,10 +66,9 @@ function collectGroupLinks() {
   for(const a of document.querySelectorAll('a[href]')) {
     const url=normalizeGroupLink(a.getAttribute("href")||a.href);
     if(!url)continue;
-    const name=groupNameFromAnchor(a,url);
-    if(!name)continue;
-    const existing=found.get(url);
-    if(!existing||name.length>existing.name.length)found.set(url,{url,name});
+    const name=extractNameFromCard(a,url);
+    const previous=found.get(url);
+    if(!previous||(!previous.name&&name)||(name&&name.length>previous.name.length))found.set(url,{url,name:name||previous?.name||""});
   }
   return [...found.values()];
 }
@@ -83,43 +82,42 @@ function scrollableAreas() {
     .sort((a,b)=>(b.clientHeight*b.clientWidth)-(a.clientHeight*a.clientWidth));
 }
 async function scanGroupLinksDeep() {
-  const found=new Map(), add=items=>items.forEach(g=>{
+  const found=new Map(),add=items=>items.forEach(g=>{
     const old=found.get(g.url);
-    if(!old||g.name.length>old.name.length)found.set(g.url,g);
+    if(!old||(!old.name&&g.name)||(g.name&&g.name.length>(old.name||"").length))found.set(g.url,g);
   });
   add(collectGroupLinks());
-  const areas=scrollableAreas();
-  const scroller=areas[0]||document.scrollingElement;
+  const scroller=scrollableAreas()[0]||document.scrollingElement;
   if(!scroller)return [...found.values()];
   const isDocument=scroller===document.scrollingElement;
   const originalTop=isDocument?(window.scrollY||0):scroller.scrollTop;
   let previousCount=-1,stagnant=0;
-  try {
-    for(let i=0;i<12;i++) {
+  try{
+    for(let i=0;i<10;i++){
       const current=isDocument?(window.scrollY||0):scroller.scrollTop;
       const maxTop=isDocument?Math.max(0,document.documentElement.scrollHeight-window.innerHeight):Math.max(0,scroller.scrollHeight-scroller.clientHeight);
       if(current>=maxTop-4&&i>0)break;
-      const next=Math.min(maxTop,current+Math.max(350,Math.floor((isDocument?window.innerHeight:scroller.clientHeight)*0.78)));
+      const next=Math.min(maxTop,current+Math.max(400,Math.floor((isDocument?window.innerHeight:scroller.clientHeight)*0.8)));
       if(isDocument)window.scrollTo({top:next,behavior:"instant"});else scroller.scrollTop=next;
-      await new Promise(resolve=>setTimeout(resolve,450));
+      await new Promise(resolve=>setTimeout(resolve,350));
       add(collectGroupLinks());
       if(found.size===previousCount)stagnant++;else stagnant=0;
       previousCount=found.size;
       if(stagnant>=3)break;
     }
-  } finally {
+  }finally{
     if(isDocument)window.scrollTo({top:originalTop,behavior:"instant"});else scroller.scrollTop=originalTop;
   }
   return [...found.values()];
 }
-
 chrome.runtime.onMessage.addListener((m,s,reply)=>{
  if(m?.type==="POSTFLOW_SCAN_GROUPS"){
    (async()=>{
      const warning=pageSafetyMessage();
      if(warning){reply({groups:[],groupDetails:[],warning});return;}
      const groupDetails=await scanGroupLinksDeep();
-     reply({groups:groupDetails.map(g=>g.url),groupDetails,scannedPage:location.pathname});
+     const named=groupDetails.filter(g=>g.name).length;
+     reply({groups:groupDetails.map(g=>g.url),groupDetails,scannedPage:location.pathname,namedCount:named});
    })().catch(()=>reply({groups:[],groupDetails:[],warning:"The scan failed. Refresh the Facebook page and try again."}));
    return true;
  }
