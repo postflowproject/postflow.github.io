@@ -1,29 +1,40 @@
-# PostFlow Group Post Helper
+# PostFlow Group Workspace
 
-Portable Chrome extension for preparing captions and working through Facebook Groups one at a time.
+A Chrome extension for preparing Facebook group campaigns and working through a user-controlled posting queue. It uses its own PostFlow branding and code.
 
-## Install on another Windows laptop
+## Install on Windows / Chrome
 
-1. Download this repository (Code → Download ZIP) and extract it, or clone it with Git.
-2. Open Chrome and go to `chrome://extensions`.
-3. Enable **Developer mode**.
-4. Click **Load unpacked** and select the repository's `extension` folder.
-5. Sign in to Facebook in that Chrome profile, open Facebook Groups, and click the PostFlow extension.
-6. Choose **Open full dashboard** for the larger workspace.
+1. Download the repository ZIP from GitHub and extract it.
+2. Open `chrome://extensions` in Chrome.
+3. Turn on **Developer mode**.
+4. Click **Load unpacked** and choose the repository's `extension` folder.
+5. Sign in to Facebook in the same Chrome profile. If Facebook was already open before installing/updating, reload the Facebook tab.
+6. Open the PostFlow extension and choose the full dashboard.
 
-## Features
+## Current features
 
-- Full dark dashboard with group list, caption composer, progress counters, and workflow status.
-- Finds visible group links on the current Facebook Groups page. Scroll the list and scan again to collect more; Facebook does not expose groups that have not loaded.
-- Imports and exports group URL lists as plain-text files.
-- Saves caption, group list, recent caption history, and progress in Chrome local storage on that laptop.
-- Opens the next group not marked posted.
-- Inserts the caption into a visible composer after you open it.
-- Lets you manually mark a group posted and reset progress without deleting Facebook content.
-- Stops caption filling if it detects a login/checkpoint/restriction screen and warns if the exact caption was used before.
+- Dark workspace dashboard with group selection, caption composer, counters and progress.
+- Scans visible group links on the current Facebook tab; scroll/load more on Facebook and scan again to discover additional groups.
+- Displays discovered group names and selectable checkboxes.
+- Imports and exports group URLs as plain text.
+- Saves campaign drafts locally, including campaign name, caption, optional first comment and selected group list.
+- Loads and deletes saved campaign drafts.
+- Optional image/video file picker shows the chosen media filename for the current dashboard session. It does not upload or persist the media file; attach it yourself in Facebook.
+- Opens the next selected group not manually marked complete.
+- Can fill a caption into a visible Facebook composer and copy the optional first comment.
+- Tracks manually marked completion and local activity. This is not proof that Facebook published a post.
 
-## Posting and safety
+## Posting workflow
 
-You must add/select the video, check the destination group and caption, and click Publish yourself. The extension does not automatically submit posts, bypass membership or posting permissions, defeat checkpoints, or evade rate limits. Only post content you are allowed to share and follow each group's rules.
+1. Open Facebook and scan the group list or import group URLs.
+2. Select the groups you intend to post to.
+3. Write the campaign caption and optional first comment; choose media as a reminder if helpful.
+4. Save the campaign draft.
+5. Click **Open next selected**, review the destination and group rules, attach media, and use **Fill caption on Facebook** if needed.
+6. Check everything and click Facebook's Publish button yourself. Mark the group posted only after you have confirmed it.
 
-Progress is a local manual record; it does not verify a successful Facebook publication and does not automatically sync to another laptop.
+The queue is intentionally review-first. PostFlow does not auto-submit bulk posts, bypass Facebook permissions/checkpoints, or attempt to evade platform rate limits. Use only groups where you are permitted to post, and avoid repetitive or unwanted content.
+
+## Data and limitations
+
+Campaigns, captions, selected groups and progress are stored in Chrome local storage for that browser profile; they do not sync automatically to another computer. Group scanning can only find links present in the currently loaded page. Facebook may change its page structure at any time, so the extension must be tested against the current Facebook UI.
