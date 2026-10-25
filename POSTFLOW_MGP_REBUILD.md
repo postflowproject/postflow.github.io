@@ -53,6 +53,14 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - This is a first working foundation, not a full clone: it does not auto-publish, upload media, sync across devices, or call a remote backend. Facebook publication is not verified.
 - Browser test and automated syntax/behaviour tests remain outstanding.
 
+## Account and subscription UI pass (2026-10-26)
+
+- Added an Account & Subscription section to the extension dashboard, with sign-in, account creation, password recovery, and current-plan presentation.
+- Authentication controls are intentionally disabled until a PostFlow-owned auth/billing service is configured. No local fake login, fabricated plan state, vendor endpoint impersonation, or password storage was added.
+- The only connected Supabase project discovered during this pass is an inactive project named "Gems Updates"; it was not reused for PostFlow.
+- The next account milestone is to provision/confirm a dedicated PostFlow backend, implement real auth/session handling and server-verified plan entitlements, then enable the UI only after integration tests.
+- The new account UI has not yet been browser-tested.
+
 ## Status
 
 - [x] Create isolated development branch.
@@ -61,6 +69,6 @@ Build PostFlow's own code and backend, using the reference only to understand fe
 - [ ] Finish tracing exact remote request/response contracts; current audit is an inventory, not a complete contract map.
 - [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
 - [x] Draft a PostFlow-owned campaign/group/job schema and state machine in `REFERENCE_EXTENSION_TRACE.md`.
-- [ ] Implement the remote schema/API (not configured yet).
+- [ ] Implement the remote schema/API (not configured yet).\n- [x] Add an honest account/subscription UI shell; controls remain disabled until a dedicated PostFlow service exists.\n- [ ] Implement real PostFlow authentication, password recovery, and server-verified subscription entitlements.
 - [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
 - [ ] Integrate the extension and validate end-to-end.
