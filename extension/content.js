@@ -29,15 +29,35 @@ function normalizeGroupLink(rawHref) {
     return u.href;
   } catch { return null; }
 }
-function groupNameFromAnchor(a) {
+function cleanGroupName(value, url) {
+  const name=String(value||"").replace(/[\u200B-\u200D\uFEFF]/g,"").trim().replace(/\s+/g," ");
+  if(!name || name.length>160 || /^\d+$/.test(name)) return "";
+  if(/^https?:\/\//i.test(name) || /facebook\.com\/groups\//i.test(name)) return "";
+  if(/^(see all|view all|groups|join group|visit group|group)$/i.test(name)) return "";
+  const slug=url?.match(/\/groups\/([^/]+)/)?.[1]||"";
+  if(slug && name.toLowerCase()===slug.toLowerCase()) return "";
+  return name;
+}
+function groupNameFromAnchor(a, url) {
   const candidates=[
-    a.getAttribute("aria-label"),a.getAttribute("title"),
-    a.querySelector("strong")?.innerText,a.querySelector("span")?.innerText,
+    a.querySelector('[dir="auto"]')?.innerText,
+    a.querySelector("strong")?.innerText,
+    a.querySelector("span")?.innerText,
+    a.getAttribute("aria-label"),
+    a.getAttribute("title"),
     a.innerText
   ];
   for(const value of candidates) {
-    const name=String(value||"").trim().replace(/\s+/g," ");
-    if(name&&name.length<=160&&!/^\d+$/.test(name)&&!/^(see all|view all|groups|join group|visit group)$/i.test(name))return name;
+    const name=cleanGroupName(value,url);
+    if(name)return name;
+  }
+  // A nearby group card may contain a title link separate from the URL link.
+  const card=a.closest('[role="article"],[role="listitem"],[role="gridcell"]');
+  if(card) {
+    for(const el of card.querySelectorAll('a[ href], [dir="auto"], strong')) {
+      const name=cleanGroupName(el.innerText||el.getAttribute("aria-label")||el.getAttribute("title"),url);
+      if(name && !/^(join|joined|visit group|view group)$/i.test(name)) return name;
+    }
   }
   return "";
 }
@@ -46,10 +66,10 @@ function collectGroupLinks() {
   for(const a of document.querySelectorAll('a[href]')) {
     const url=normalizeGroupLink(a.getAttribute("href")||a.href);
     if(!url)continue;
-    const name=groupNameFromAnchor(a);
+    const name=groupNameFromAnchor(a,url);
     if(!name)continue;
     const existing=found.get(url);
-    if(!existing||existing.name===url||name.length>existing.name.length)found.set(url,{url,name});
+    if(!existing||name.length>existing.name.length)found.set(url,{url,name});
   }
   return [...found.values()];
 }
@@ -63,8 +83,6 @@ function scrollableAreas() {
     .sort((a,b)=>(b.clientHeight*b.clientWidth)-(a.clientHeight*a.clientWidth));
 }
 async function scanGroupLinksDeep() {
-  // Scan currently rendered links, then make a bounded number of normal scrolls
-  // to let Facebook's own group-list UI lazy-load additional entries.
   const found=new Map(), add=items=>items.forEach(g=>{
     const old=found.get(g.url);
     if(!old||g.name.length>old.name.length)found.set(g.url,g);
@@ -75,10 +93,9 @@ async function scanGroupLinksDeep() {
   if(!scroller)return [...found.values()];
   const isDocument=scroller===document.scrollingElement;
   const originalTop=isDocument?(window.scrollY||0):scroller.scrollTop;
-  const maxPasses=12;
   let previousCount=-1,stagnant=0;
   try {
-    for(let i=0;i<maxPasses;i++) {
+    for(let i=0;i<12;i++) {
       const current=isDocument?(window.scrollY||0):scroller.scrollTop;
       const maxTop=isDocument?Math.max(0,document.documentElement.scrollHeight-window.innerHeight):Math.max(0,scroller.scrollHeight-scroller.clientHeight);
       if(current>=maxTop-4&&i>0)break;
