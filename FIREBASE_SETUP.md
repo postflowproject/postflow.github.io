@@ -40,6 +40,7 @@ The rules only allow an authenticated user to read or write the workspace docume
 ## Current limitations
 
 - The client is a development scaffold and has not been end-to-end tested against a live Firebase project yet.
-- Sync currently stores the supported workspace state as one Firestore document. It is not a real-time collaborative editor; changes are pushed after local storage changes and pulled at sign-in.
-- If you already have local workspace data on a device, sign in before creating new data on another device. An existing cloud workspace is loaded over local values on sign-in.
+- Sync currently stores the supported workspace state as one Firestore document (up to 850 KB of serialized workspace data). It is not a real-time collaborative editor; changes are pushed after local storage changes and pulled at sign-in.
+- When local and cloud values both changed since the last sync, PostFlow keeps the local value for that field and reports the conflict in the dashboard status. On a device without sync history, non-empty local values are preserved; empty defaults are filled from the cloud.
+- The sign-in screen's “Keep me signed in” option stores the session across browser restarts. Turning it off keeps the session only for the current browser session.
 - Publishing remains user-controlled. PostFlow does not send Facebook cookies/session tokens to Firebase and does not auto-click Publish.

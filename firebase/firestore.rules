@@ -3,9 +3,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // Every PostFlow workspace belongs to exactly one authenticated Firebase UID.
     match /users/{userId}/workspace/{documentId} {
-      allow read, create, update, delete: if request.auth != null
+      allow read, delete: if request.auth != null
         && request.auth.uid == userId
         && documentId == "main";
+      allow create, update: if request.auth != null
+        && request.auth.uid == userId
+        && documentId == "main"
+        && validWorkspace();
+    }
+    function validWorkspace() {
+      return request.resource.data.keys().hasOnly(["data", "updatedAt"])
+        && request.resource.data.keys().hasAll(["data", "updatedAt"])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() <= 900000
+        && request.resource.data.updatedAt is timestamp;
     }
     // Deny all other documents unless an explicit rule is added later.
     match /{document=**} {

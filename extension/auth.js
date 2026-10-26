@@ -6,6 +6,7 @@
   const form = document.getElementById("authForm");
   const email = document.getElementById("authEmail");
   const password = document.getElementById("authPassword");
+  const remember = document.getElementById("authRemember");
   const confirmWrap = document.getElementById("authConfirmWrap");
   const confirmPassword = document.getElementById("authConfirm");
   const submit = document.getElementById("authSubmit");
@@ -51,10 +52,17 @@
     if (!response.ok) throw new Error(friendlyError(data.error?.message || data.error?.errors?.[0]?.message));
     return data;
   }
-  async function saveSession(next) {
+  async function saveSession(next, persist = remember?.checked !== false) {
     session = next || null;
-    if (session) await chrome.storage.local.set({ [storageKey]: session });
-    else await chrome.storage.local.remove(storageKey);
+    if (session) {
+      session.remember = persist;
+      const store = persist ? chrome.storage.local : chrome.storage.session;
+      const otherStore = persist ? chrome.storage.session : chrome.storage.local;
+      await store.set({ [storageKey]: session });
+      await otherStore.remove(storageKey);
+    } else {
+      await Promise.all([chrome.storage.local.remove(storageKey), chrome.storage.session.remove(storageKey)]);
+    }
   }
   async function refresh(saved) {
     if (!saved?.refreshToken) return null;
@@ -64,9 +72,12 @@
         idToken: data.id_token,
         refreshToken: data.refresh_token || saved.refreshToken,
         expiresAt: Date.now() + Number(data.expires_in || 3600) * 1000,
-        user: { uid: data.user_id || saved.user?.uid, email: saved.user?.email || "" }
+        user: { uid: data.user_id || saved.user?.uid, email: saved.user?.email || "" },
+        remember: saved.remember !== false
       };
-      await saveSession(next);
+      session = next;
+      const store = next.remember === false ? chrome.storage.session : chrome.storage.local;
+      await store.set({ [storageKey]: next });
       return next;
     } catch (error) {
       if (/network|fetch/i.test(error.message)) return saved;
@@ -81,8 +92,8 @@
     next.user = { uid: user.localId, email: user.email || next.user?.email || "" };
     return next;
   }
-  async function enter(next) {
-    await saveSession(next);
+  async function enter(next, persist = next?.remember !== false) {
+    await saveSession(next, persist);
     if (!next?.idToken) { showGate(); return; }
     showWorkspace();
     window.dispatchEvent(new CustomEvent("postflow:authenticated", {
@@ -113,7 +124,7 @@
     if (!configured) return say("Firebase setup needed: fill in extension/firebase-config.js and enable Email/Password sign-in in Firebase Console.");
     const mail = email.value.trim(), pw = password.value;
     if (!mail) return say("Enter your email address.");
-    if (mode !== "reset" && pw.length < 8) return say("Use a password with at least 8 characters.");
+    if (mode !== "reset" && pw.length < 6) return say("Use a password with at least 6 characters.");
     if (mode === "signup" && pw !== confirmPassword.value) return say("The passwords don't match.");
     const requestedMode = mode;
     submit.disabled = true; submit.textContent = "Please wait…"; say("");
@@ -127,9 +138,10 @@
         const next = {
           idToken: data.idToken, refreshToken: data.refreshToken,
           expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
-          user: userFrom(data)
+          user: userFrom(data),
+          remember: remember?.checked !== false
         };
-        await enter(next);
+        await enter(next, next.remember);
         if (requestedMode === "signup") say("Account created. Check your email if Firebase requires email verification.", true);
       }
     } catch (error) { say(error.message || "Couldn't complete the request."); }
@@ -151,19 +163,22 @@
       return;
     }
     const stored = await chrome.storage.local.get(storageKey);
-    let current = stored[storageKey];
+    const temporary = await chrome.storage.session.get(storageKey);
+    let current = stored[storageKey] || temporary[storageKey];
+    if (current && remember) remember.checked = current.remember !== false;
     if (current?.expiresAt && current.expiresAt < Date.now() + 60000) current = await refresh(current);
     if (current?.idToken) {
-      try { current = await validate(current); await enter(current); return; }
+      try { current = await validate(current); await enter(current, current.remember !== false); return; }
       catch (error) {
         if (/network|fetch/i.test(error.message)) {
-          await enter(current);
+          await enter(current, current.remember !== false);
           say("Offline: showing this saved session. Cloud sync will resume when you're connected.", true);
           return;
         }
         current = await refresh(current);
         if (current?.idToken) {
-          try { current = await validate(current); await enter(current); return; } catch {}
+          try { current = await validate(current); await enter(current, current.remember !== false); return; }
+          catch { /* Keep the gate visible when the refreshed token is rejected. */ }
         }
       }
     }
