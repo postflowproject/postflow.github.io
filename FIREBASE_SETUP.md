@@ -22,13 +22,25 @@ Edit `extension/firebase-config.js` and fill these values from the Firebase Web 
 
 These are client configuration values, not service-account credentials. Never put a service-account JSON file, private key, Admin SDK credential or other secret in the extension.
 
-## 3. Deploy Firestore security rules
+## 3. Enable Facebook sign-in for the extension
+
+The extension can use Facebook for PostFlow account sign-in while keeping email/password available. Facebook sign-in requests only the user's public profile and email; it does not request Facebook Page publishing permissions.
+
+1. In Facebook for Developers, use the PostFlow Meta app and enable **Facebook Login**. Keep the app in Development mode while testing; only app roles and test users can sign in until Meta approves/publishes the app.
+2. In Firebase Console → Authentication → Sign-in method, enable **Facebook**. Enter the Meta App ID and App Secret in Firebase Console. Do not put the App Secret in this repository or the extension.
+3. In Firebase's Facebook provider settings, copy the OAuth redirect URI and add it to the Meta app's **Valid OAuth Redirect URIs**.
+4. Load the extension in Chrome and copy its ID from `chrome://extensions`. The extension callback URL is `https://<EXTENSION_ID>.chromiumapp.org/firebase-facebook`. Add that exact URL to the Meta app's **Valid OAuth Redirect URIs**, and add `<EXTENSION_ID>.chromiumapp.org` to Firebase Authentication → Settings → Authorized domains.
+5. If the unpacked extension gets a different ID on another computer or after changing its folder, update both allowlists for the new ID. A published Chrome Web Store extension keeps a stable ID.
+
+The current PostFlow Meta App ID is configured in `extension/firebase-config.js`. If you use a different Meta app, replace that public App ID there. Its App Secret must remain only in Firebase Console.
+
+## 4. Deploy Firestore security rules
 
 In Firebase Console → Firestore Database → Rules, publish the contents of `firebase/firestore.rules`.
 
 The rules only allow an authenticated user to read or write the workspace document under their own Firebase UID. Do not test with open/public rules.
 
-## 4. Load and test the extension
+## 5. Load and test the extension
 
 1. Open `chrome://extensions`.
 2. Enable Developer mode and choose **Load unpacked** (or reload the existing unpacked extension folder).

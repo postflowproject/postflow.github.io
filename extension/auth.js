@@ -15,10 +15,15 @@
   const title = document.getElementById("authTitle");
   const subtitle = document.getElementById("authSubtitle");
   const message = document.getElementById("authMessage");
+  const facebookButton = document.getElementById("authFacebook");
+  const accountLinkFacebook = document.getElementById("accountLinkFacebook");
+  const accountFacebookStatus = document.getElementById("accountFacebookStatus");
   const configured = Boolean(cfg.apiKey && cfg.projectId);
   const storageKey = "postflowFirebaseSession";
   let mode = "login";
   let session = null;
+  let facebookLinkMessage = "";
+  let facebookLinkIsError = false;
 
   const authUrl = path => "https://identitytoolkit.googleapis.com/v1/" + path + "?key=" + encodeURIComponent(cfg.apiKey || "");
   const tokenUrl = () => "https://securetoken.googleapis.com/v1/token?key=" + encodeURIComponent(cfg.apiKey || "");
@@ -28,7 +33,7 @@
   function userFrom(data) { return { uid: data.localId || data.userId || data.uid, email: data.email || "" }; }
   function friendlyError(code) {
     const map = {
-      EMAIL_EXISTS: "An account already exists for this email. Try signing in.",
+      EMAIL_EXISTS: "This email already has a PostFlow account. Sign in with that account, then link Facebook from the Account section if needed.",
       INVALID_EMAIL: "Enter a valid email address.",
       INVALID_PASSWORD: "The email or password is incorrect.",
       EMAIL_NOT_FOUND: "The email or password is incorrect.",
@@ -36,7 +41,9 @@
       WEAK_PASSWORD: "Choose a stronger password (at least 8 characters).",
       USER_DISABLED: "This account has been disabled.",
       TOO_MANY_ATTEMPTS_TRY_LATER: "Too many attempts. Wait a while and try again.",
-      OPERATION_NOT_ALLOWED: "Email/password sign-in is not enabled in the Firebase project yet.",
+      OPERATION_NOT_ALLOWED: "This sign-in option is not enabled in Firebase yet. Enable the matching provider in Firebase Authentication settings.",
+      FEDERATED_USER_ID_ALREADY_LINKED: "This Facebook account is already linked to another PostFlow account.",
+      INVALID_IDP_RESPONSE: "Facebook could not complete sign-in. Check that Firebase and Meta use the same Facebook app.",
       API_KEY_INVALID: "The Firebase API key is invalid. Check firebase-config.js.",
       PROJECT_NOT_FOUND: "The Firebase project was not found. Check the project configuration."
     };
@@ -89,12 +96,27 @@
     const data = await request(authUrl("accounts:lookup"), { idToken: next.idToken });
     const user = data.users?.[0];
     if (!user) throw new Error("This session is no longer valid. Sign in again.");
-    next.user = { uid: user.localId, email: user.email || next.user?.email || "" };
+    next.user = {
+      uid: user.localId,
+      email: user.email || next.user?.email || "",
+      displayName: user.displayName || next.user?.displayName || "",
+      providers: (user.providerUserInfo || []).map(provider => provider.providerId)
+    };
     return next;
+  }
+  function updateFacebookLinkState() {
+    const linked = session?.user?.providers?.includes("facebook.com") === true;
+    if (accountLinkFacebook) accountLinkFacebook.hidden = !session || linked;
+    if (accountFacebookStatus) {
+      accountFacebookStatus.hidden = !linked && !facebookLinkMessage;
+      accountFacebookStatus.textContent = facebookLinkMessage || "Facebook sign-in is linked to this PostFlow account.";
+      accountFacebookStatus.classList.toggle("auth-message-error", facebookLinkIsError);
+    }
   }
   async function enter(next, persist = next?.remember !== false) {
     await saveSession(next, persist);
     if (!next?.idToken) { showGate(); return; }
+    updateFacebookLinkState();
     showWorkspace();
     window.dispatchEvent(new CustomEvent("postflow:authenticated", {
       detail: { user: next.user, accessToken: next.idToken, provider: "firebase" }
@@ -119,6 +141,78 @@
   }
   modeButton.addEventListener("click", () => { mode = mode === "signup" ? "login" : "signup"; render(); });
   forgot.addEventListener("click", () => { mode = "reset"; render(); });
+  async function facebookCredential() {
+    if (!cfg.facebookAppId) throw new Error("Facebook sign-in is not configured yet. Add the Meta App ID to extension/firebase-config.js.");
+    if (!chrome.identity?.launchWebAuthFlow) throw new Error("This Chrome version does not support the Facebook sign-in flow.");
+    const redirectUri = chrome.identity.getRedirectURL("firebase-facebook");
+    const randomState = new Uint8Array(24);
+    crypto.getRandomValues(randomState);
+    const expectedState = Array.from(randomState, byte => byte.toString(16).padStart(2, "0")).join("");
+    const url = new URL("https://www.facebook.com/dialog/oauth");
+    url.searchParams.set("client_id", cfg.facebookAppId);
+    url.searchParams.set("redirect_uri", redirectUri);
+    url.searchParams.set("response_type", "token");
+    url.searchParams.set("scope", "public_profile,email");
+    url.searchParams.set("state", expectedState);
+    let result;
+    try { result = await chrome.identity.launchWebAuthFlow({ url: url.href, interactive: true }); }
+    catch { throw new Error("Facebook sign-in could not open. Check the Meta app's redirect URI and Facebook Login settings."); }
+    if (!result) throw new Error("Facebook sign-in was cancelled.");
+    const callback = new URL(result);
+    const values = new URLSearchParams(callback.hash.slice(1) || callback.search.slice(1));
+    if (values.get("state") !== expectedState) throw new Error("Facebook sign-in could not be verified. Please try again.");
+    const oauthError = values.get("error_description") || values.get("error");
+    if (oauthError) throw new Error(oauthError.replaceAll("+", " "));
+    const accessToken = values.get("access_token");
+    if (!accessToken) throw new Error("Facebook did not return a sign-in token. Check the Meta app's Facebook Login settings.");
+    return { accessToken, redirectUri };
+  }
+  async function signInWithFacebook(linkExisting = false) {
+    if (!configured) throw new Error("Firebase setup is required before Facebook sign-in can be used.");
+    const { accessToken, redirectUri } = await facebookCredential();
+    const postBody = new URLSearchParams({ access_token: accessToken, providerId: "facebook.com" }).toString();
+    const body = { postBody, requestUri: redirectUri, returnIdpCredential: true, returnSecureToken: true };
+    if (linkExisting) {
+      if (!session?.idToken) throw new Error("Sign in to your existing PostFlow account before linking Facebook.");
+      body.idToken = session.idToken;
+    }
+    const data = await request(authUrl("accounts:signInWithIdp"), body);
+    const next = {
+      idToken: data.idToken,
+      refreshToken: data.refreshToken,
+      expiresAt: Date.now() + Number(data.expiresIn || 3600) * 1000,
+      user: { ...userFrom(data), displayName: data.displayName || "", providers: linkExisting ? [...(session?.user?.providers || []), "facebook.com"] : ["facebook.com"] },
+      remember: linkExisting ? session?.remember !== false : remember?.checked !== false
+    };
+    await enter(next, next.remember);
+  }
+  facebookButton?.addEventListener("click", async () => {
+    facebookButton.disabled = true;
+    facebookButton.lastElementChild.textContent = "Connecting to Facebook…";
+    say("");
+    try { await signInWithFacebook(); }
+    catch (error) { say(error.message || "Facebook sign-in failed."); }
+    finally {
+      facebookButton.disabled = false;
+      facebookButton.lastElementChild.textContent = "Continue with Facebook";
+    }
+  });
+  accountLinkFacebook?.addEventListener("click", async () => {
+    accountLinkFacebook.disabled = true;
+    accountLinkFacebook.textContent = "Connecting to Facebook…";
+    try {
+      await signInWithFacebook(true);
+      facebookLinkMessage = "";
+      facebookLinkIsError = false;
+    } catch (error) {
+      facebookLinkMessage = error.message || "Facebook could not be linked.";
+      facebookLinkIsError = true;
+    } finally {
+      accountLinkFacebook.disabled = false;
+      accountLinkFacebook.textContent = "Link Facebook sign-in";
+      updateFacebookLinkState();
+    }
+  });
   form.addEventListener("submit", async event => {
     event.preventDefault();
     if (!configured) return say("Firebase setup needed: fill in extension/firebase-config.js and enable Email/Password sign-in in Firebase Console.");

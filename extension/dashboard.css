@@ -13,3 +13,5 @@
 .header-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 .remember-option{display:flex;align-items:center;gap:9px;color:var(--muted);font-size:11px;cursor:pointer}.remember-option input{accent-color:#7d8bff;width:15px;height:15px;margin:0}.remember-option{margin-top:15px}
+.facebook-auth-button{width:100%;min-height:43px;display:flex;align-items:center;justify-content:center;gap:10px;margin-top:8px;background:#1877f2;color:#fff;border-color:#1877f2}.facebook-auth-button:hover{background:#166fe5;filter:brightness(1.04)}.facebook-auth-button:disabled{opacity:.6;cursor:wait}.facebook-f{display:grid;place-items:center;width:20px;height:20px;border-radius:50%;background:#fff;color:#1877f2;font:bold 18px Arial,sans-serif}.auth-divider{display:flex;align-items:center;gap:11px;margin:18px 0;color:var(--muted);font-size:10px}.auth-divider:before,.auth-divider:after{content:"";height:1px;flex:1;background:var(--line)}.account-facebook-link{margin-top:12px}.account-facebook-link[hidden],#accountFacebookStatus[hidden]{display:none}
+.auth-message-error{color:#f0a9a9}
