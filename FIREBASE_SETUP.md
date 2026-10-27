@@ -35,7 +35,11 @@ The web dashboard's Meta App ID is set in Settings (with the existing app as its
 
 ## 4. Deploy Firestore security rules
 
-In Firebase Console → Firestore Database → Rules, publish the contents of `firebase/firestore.rules`.
+The repository is mapped to the existing project with `.firebaserc`, and `firebase.json` points to `firebase/firestore.rules`. After installing the Firebase CLI and signing in with an account that can administer `postflow-nz786`, deploy only these rules with:
+
+```sh
+npx -y firebase-tools@latest deploy --only firestore:rules --project postflow-nz786
+```
 
 The rules only allow an authenticated user to read or write the workspace document under their own Firebase UID. Do not test with open/public rules.
 
@@ -48,6 +52,8 @@ The rules only allow an authenticated user to read or write the workspace docume
 5. Load or reload the extension from `chrome://extensions`, sign in with the same Firebase account, and confirm its campaign/group workspace still syncs alongside the web dashboard.
 6. Separately connect Facebook from the web app's Settings, select a Page, and test only with a Page and Meta app you control. Reconnect after a browser restart. Do not treat an unreviewed Meta app as available to the public.
 
+Before each live Page post, PostFlow displays the Page name, caption and attachment names for explicit confirmation. Cancelling leaves the post pending and sends nothing to Meta.
+
 ## Current limitations
 
 - Sync stores the web dashboard and extension workspace state together in one Firestore document (up to 850 KB of UTF-8 serialized workspace data). It is not a real-time collaborative editor; changes are pushed after local edits and pulled at sign-in or manual sync.
@@ -55,3 +61,4 @@ The rules only allow an authenticated user to read or write the workspace docume
 - The sign-in screen's “Keep me signed in” option stores the Firebase session in browser IndexedDB (or the extension's local storage); turning it off keeps it only for the current browser session. Facebook credentials never enter Firebase workspace sync.
 - Media blobs remain in browser IndexedDB and are not uploaded to Firestore. Page tokens remain in memory and require reconnection after a restart.
 - Publishing remains user-controlled. Scheduled posts are local plans only; dependable background scheduling needs a server-side job runner. PostFlow does not auto-click Facebook's website or publish to groups through unofficial automation.
+- Meta removed the Groups API, `publish_to_groups`, and `groups_access_member_info` from all Graph API versions on April 22, 2024. The extension keeps an optional, user-triggered browser helper that reads group links currently loaded in the Facebook page and may scroll to reveal more. This is not an official Meta API, cannot guarantee discovery of every group, and may break when Facebook changes its UI. Users sign in to Facebook themselves; PostFlow never automates login or clicks Publish. Group posts remain manual. The web dashboard can list and publish to eligible Pages through the official Graph API after the required Meta permissions are approved. See Meta's [Graph API v19.0 changelog](https://developers.facebook.com/docs/graph-api/changelog/version19.0/).

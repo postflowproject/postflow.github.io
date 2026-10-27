@@ -110,7 +110,7 @@
       }));
       await saveQueue();
       say("Queue built. Open each group and publish manually after review.");
-    } catch (error) {
+    } catch {
       say("Couldn't build the queue. Check extension storage permissions and try again.");
     }
   }

@@ -16,7 +16,7 @@
 </head>
 <body>
   <h1>PostFlow Group Helper</h1>
-  <p>Find visible groups from your logged-in Facebook account.</p>
+  <p>After you sign in yourself, scan group links loaded on the open Facebook page. Results may be incomplete.</p>
   <label for="caption">Caption</label>
   <textarea id="caption" placeholder="Write your caption once..."></textarea>
   <button class="primary" id="dashboard">Open full dashboard ↗</button>
@@ -30,7 +30,7 @@
   <button class="secondary" id="resetProgress">Reset progress</button>
   <div id="progress" role="status">No groups saved yet.</div>
   <div id="status" role="status"></div>
-  <div class="hint">Facebook only exposes links loaded on the page. You still upload the video and click Publish yourself. PostFlow never submits a post or bypasses Facebook restrictions.</div>
+  <div class="hint">Meta retired the official Groups API. Scanning reads page links and is not an API; it cannot guarantee every group. You attach media and publish yourself. PostFlow never automates Facebook login or submits posts.</div>
   <script src="popup.js"></script>
 </body>
 </html>

@@ -1,44 +1,34 @@
 # PostFlow Group Workspace
 
-A Chrome extension for preparing Facebook group campaigns and working through a user-controlled posting queue. It uses its own PostFlow branding and code.
+A Chrome extension for preparing Facebook Group campaigns. It includes a user-triggered helper that reads group links currently rendered in the Facebook tab and can scroll that page to reveal more links. This is a browser UI workaround, not a Meta API, and results are incomplete and may break when Facebook changes its UI.
 
 ## Install on Windows / Chrome
 
-1. Download the repository ZIP from GitHub and extract it.
+1. Download the repository ZIP from the `postflow-mgp-rebuild` branch and extract it.
 2. Open `chrome://extensions` in Chrome.
 3. Turn on **Developer mode**.
 4. Click **Load unpacked** and choose the repository's `extension` folder.
-5. Sign in to Facebook in the same Chrome profile. If Facebook was already open before installing/updating, reload the Facebook tab.
-6. Click the PostFlow extension icon. It opens (or focuses) the full dashboard in a browser tab.
+5. Sign in to Facebook yourself in the same Chrome profile. Reload an already-open Facebook tab after installing/updating the extension.
+6. Click the PostFlow icon to use the compact popup, or open the full dashboard from the popup.
+7. Sign in to your separate PostFlow Firebase account in the dashboard to sync the workspace.
 
 ## Current features
 
-The review queue engine is an early implementation and has not yet been validated end-to-end in Chrome.
+- Dark workspace dashboard and popup with group selection, caption composer, counters and progress.
+- Scan group links in a Facebook tab after you click the scan button. The content script inspects the page DOM and may scroll the page, then restores its prior position. It does not run a scan on page load.
+- Display group names found in loaded page links and select groups with checkboxes. Facebook may lazy-load results; repeat the scan after manually loading more. This does not guarantee discovery of every group you can access.
+- Import/export group URLs as plain text.
+- Save, load and delete campaign drafts with captions, optional first comments and selected groups.
+- Choose a local image/video as a reminder; attach it yourself on Facebook.
+- Open the next selected group, copy or fill a caption, and track completion manually.
+- Keep campaigns, group lists and progress in the user's Firebase workspace and local extension storage.
 
-- Dark workspace dashboard with group selection, caption composer, counters and progress.
-- Scans visible group links on the current Facebook tab; scroll/load more on Facebook and scan again to discover additional groups.
-- Displays discovered group names and selectable checkboxes.
-- Imports and exports group URLs as plain text.
-- Saves campaign drafts locally, including campaign name, caption, optional first comment and selected group list.
-- Loads and deletes saved campaign drafts.
-- Optional image/video file picker shows the chosen media filename for the current dashboard session. It does not upload or persist the media file; attach it yourself in Facebook.
-- Opens the next selected group not manually marked complete.
-- Builds a persistent review queue from the selected groups and saved caption, with ordered jobs and pending/opened/reviewed states.
-- Queue progress survives dashboard and browser restarts in the same Chrome profile; queue status is manual and does not verify Facebook publication.
-- Can fill a caption into a visible Facebook composer and copy the optional first comment.
-- Tracks manually marked completion and local activity. This is not proof that Facebook published a post.
+## Meta API and posting limits
 
-## Posting workflow
+Meta retired the Groups API and the `publish_to_groups` and `groups_access_member_info` permissions in 2024. The scanner is not an official Meta API and cannot verify membership or posting rights. PostFlow does not automate Facebook login and does not click Publish. After reviewing the group and its rules, you must publish yourself.
 
-1. Open Facebook and scan the group list or import group URLs.
-2. Select the groups you intend to post to.
-3. Write the campaign caption and optional first comment; choose media as a reminder if helpful.
-4. Save the campaign draft.
-5. In **Review queue**, build a queue from your selection. Use **Open next pending** or an individual **Open** action, review the destination and group rules, attach media, and use **Fill caption on Facebook** if needed.
-6. Check everything and click Facebook's Publish button yourself. Mark the group posted only after you have confirmed it.
+The web dashboard separately supports Facebook Login for Pages through Meta's official OAuth and Graph API flow. Eligible Pages can be listed and Page posts can be published only with permissions Meta has approved for the app. Before each Page post, PostFlow asks you to confirm the Page and exact content.
 
-The queue is intentionally review-first. PostFlow does not auto-submit bulk posts, bypass Facebook permissions/checkpoints, or attempt to evade platform rate limits. Use only groups where you are permitted to post, and avoid repetitive or unwanted content.
+## Data and limits
 
-## Data and limitations
-
-Campaigns, captions, selected groups and progress are stored in Chrome local storage for that browser profile; they do not sync automatically to another computer. Group scanning can only find links present in the currently loaded page. Facebook may change its page structure at any time, so the extension must be tested against the current Facebook UI.
+Campaigns, captions, selected groups and progress sync through the authenticated user's Firebase workspace. Media files remain local and are not uploaded by this extension. Facebook may change its page structure at any time, so the optional scanner may stop working or find fewer links.

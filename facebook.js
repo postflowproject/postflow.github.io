@@ -126,8 +126,21 @@ export async function fetchFacebookPages(accessToken) {
     fields: "id,name,category,access_token",
     limit: "100",
   });
-  const data = await graphRequest(`https://graph.facebook.com/${GRAPH_VERSION}/me/accounts?${params}`);
-  return data.data || [];
+  let nextUrl = `https://graph.facebook.com/${GRAPH_VERSION}/me/accounts?${params}`;
+  const pages = [];
+  const seenUrls = new Set();
+  while (nextUrl) {
+    const url = new URL(nextUrl);
+    if (url.protocol !== "https:" || url.hostname !== "graph.facebook.com" || !url.pathname.startsWith(`/${GRAPH_VERSION}/`)) {
+      throw new Error("Facebook returned an unexpected Page-list pagination URL.");
+    }
+    if (seenUrls.has(url.href)) throw new Error("Facebook returned a repeated Page-list pagination URL.");
+    seenUrls.add(url.href);
+    const data = await graphRequest(url.href);
+    pages.push(...(data.data || []));
+    nextUrl = data.paging?.next || "";
+  }
+  return pages;
 }
 
 export async function publishToFacebookGraph({ pageId, pageAccessToken, caption = "", mediaFile, onProgress }) {

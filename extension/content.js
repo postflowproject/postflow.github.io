@@ -11,7 +11,7 @@ function findComposer() {
 }
 function insertText(el,text){
   el.focus();el.click();let inserted=false;
-  try{const s=getSelection(),r=document.createRange();r.selectNodeContents(el);s.removeAllRanges();s.addRange(r);inserted=document.execCommand("insertText",false,text);}catch{}
+  try{const s=getSelection(),r=document.createRange();r.selectNodeContents(el);s.removeAllRanges();s.addRange(r);inserted=document.execCommand("insertText",false,text);}catch{ /* Use the textContent fallback if insertText is unavailable. */ }
   if(!inserted)el.textContent=text;
   el.dispatchEvent(new InputEvent("input",{bubbles:true,inputType:"insertText",data:text}));
   el.dispatchEvent(new Event("change",{bubbles:true}));

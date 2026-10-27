@@ -175,9 +175,30 @@ export default function App() {
     const timer = window.setTimeout(async () => {
       try {
         const result = await syncWorkspace(uid, snapshot);
-        if (!cancelled && currentUserRef.current?.uid === uid) setSyncStatus(result.conflicts.length
-          ? "Synced. This device's edit was kept for conflicting items; edited items were preserved over deletions."
-          : "Synced to your PostFlow account.");
+        if (!cancelled && currentUserRef.current?.uid === uid) {
+          const syncedWorkspace = {
+            drafts: result.data.drafts || [],
+            queue: result.data.queue || [],
+            history: result.data.history || [],
+            pages: result.data.pages || [],
+            settings: { ...DEFAULT_SETTINGS, ...(result.data.settings || {}) },
+          };
+          if (JSON.stringify(syncedWorkspace) !== JSON.stringify(snapshot)) {
+            try {
+              localStorage.setItem(`${STORAGE_KEY}:${uid}`, JSON.stringify(sanitizeWorkspace(syncedWorkspace)));
+            } catch {
+              setStorageError("Browser storage is full or unavailable. Remove old data or media and try again.");
+            }
+            setDrafts(syncedWorkspace.drafts);
+            setQueue(syncedWorkspace.queue);
+            setHistory(syncedWorkspace.history);
+            setPages(syncedWorkspace.pages);
+            setSettings(syncedWorkspace.settings);
+          }
+          setSyncStatus(result.conflicts.length
+            ? "Synced. This device's edit was kept for conflicting items; edited items were preserved over deletions."
+            : "Synced to your PostFlow account.");
+        }
       } catch (error) {
         if (!cancelled && currentUserRef.current?.uid === uid) setSyncStatus(`Cloud sync paused: ${error.message}`);
       }
@@ -559,13 +580,7 @@ export default function App() {
         setCurrentPostId(activeId);
 
         try {
-          // Persist the in-flight marker before contacting Meta so a restart never auto-retries an uncertain publish.
-          const processingQueue = queueRef.current.map((post) => (post.id === activeId ? { ...post, status: "Processing", progress: 10 } : post));
-          queueRef.current = processingQueue;
-          setQueue(processingQueue);
-          localStorage.setItem(`${STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(sanitizeWorkspace({ drafts, queue: processingQueue, history, pages, settings })));
-
-          // Find if target page is a connected Facebook Page with an access token
+          // A live Page post needs a clear, per-post confirmation of its destination and exact content.
           const targetPageObj = pages.find((p) => p.id === next.pageId) || pages.find((p) => p.name === next.page);
           const pageAccessToken = targetPageObj?.isFacebook ? pageTokensRef.current[targetPageObj.id] : null;
           const isRealFbPage = Boolean(targetPageObj && pageAccessToken);
@@ -573,6 +588,24 @@ export default function App() {
           if (targetPageObj?.isFacebook && !pageAccessToken) {
             throw new Error("Reconnect Facebook in Settings before publishing to this Page. The Page access token is only kept in memory and does not survive a browser restart.");
           }
+
+          if (isRealFbPage) {
+            const attachmentNames = (next.mediaNames || []).join(", ") || "none";
+            const confirmed = window.confirm(
+              `Publish this post to the Facebook Page “${targetPageObj.name}”?\n\nPost content:\n${next.caption || "(no caption)"}\n\nAttachments: ${attachmentNames}\n\nChoose OK to send this exact post to Meta.`,
+            );
+            if (!confirmed) {
+              stopRef.current = true;
+              setQueue((current) => current.map((post) => (post.id === activeId ? { ...post, status: "Pending", progress: 0, error: "Not published. Confirmation was cancelled." } : post)));
+              break;
+            }
+          }
+
+          // Persist the in-flight marker before contacting Meta so a restart never auto-retries an uncertain publish.
+          const processingQueue = queueRef.current.map((post) => (post.id === activeId ? { ...post, status: "Processing", progress: 10 } : post));
+          queueRef.current = processingQueue;
+          setQueue(processingQueue);
+          localStorage.setItem(`${STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(sanitizeWorkspace({ drafts, queue: processingQueue, history, pages, settings })));
 
           if (isRealFbPage) {
             if ((next.mediaIds || []).length > 1) {
@@ -1445,6 +1478,10 @@ export default function App() {
               </button>
             )}
           </div>
+
+          <p className="inline-notice">
+            Facebook Groups are not available to discover or publish through Meta’s official Graph API. PostFlow can list every Page returned by your approved account access and publish to a Page after you confirm each post.
+          </p>
 
           <form className="add-page-form" onSubmit={(event) => {
             event.preventDefault();
