@@ -25,18 +25,37 @@ export function makeId() {
   return crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
-export function loadSavedState() {
+export function loadSavedState(userId) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const signedInUid = userId || null;
+    const accountKey = signedInUid ? `${STORAGE_KEY}:${signedInUid}` : null;
+    const accountRaw = accountKey ? localStorage.getItem(accountKey) : null;
+    const legacyRaw = localStorage.getItem(STORAGE_KEY);
+    const migrated = localStorage.getItem("postflow.firebase.legacy-migrated") === "true";
+    const raw = accountRaw || (!migrated ? legacyRaw : null);
+    if (!raw) return null;
+    const saved = JSON.parse(raw);
+    // Older builds persisted Meta credentials in the workspace. Strip them during migration.
+    const stripSecrets = value => {
+      if (Array.isArray(value)) return value.map(stripSecrets);
+      if (!value || typeof value !== "object") return value;
+      return Object.fromEntries(Object.entries(value)
+        .filter(([key]) => !/token|secret|credential|facebookconnected/i.test(key))
+        .map(([key, child]) => [key, stripSecrets(child)]));
+    };
+    const cleaned = stripSecrets(saved);
+    if (legacyRaw && raw === legacyRaw) {
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cleaned)); } catch { /* Keep the in-memory migration available. */ }
+    }
+    return cleaned;
   } catch (error) {
     console.error("Could not restore PostFlow data:", error);
     return null;
   }
 }
 
-export function createInitialState() {
-  const saved = loadSavedState();
+export function createInitialState(userId) {
+  const saved = loadSavedState(userId);
   return {
     drafts: Array.isArray(saved?.drafts) ? saved.drafts : [],
     queue: Array.isArray(saved?.queue) ? saved.queue : [],

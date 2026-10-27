@@ -3,19 +3,49 @@
   const cfg = window.POSTFLOW_FIREBASE_CONFIG || {};
   const keys = ["caption", "firstComment", "campaignName", "groups", "discoveredGroups", "selectedGroups", "completedGroups", "dashboardActivity", "postflowCampaigns", "postflowReviewQueue", "captionHistory"];
   const baselineKey = uid => "postflowSyncBaseline:" + uid;
-  let activeUser = null, generation = 0, busy = false, dirty = false, remoteWrite = false, timer = null, baseline = {};
+  const cacheKey = uid => "postflowWorkspaceCache:" + uid;
+  const activeUidKey = "postflowWorkspaceActiveUid";
+  const legacyMigratedKey = "postflowWorkspaceLegacyMigrated";
+  let activeUser = null, generation = 0, busy = false, dirty = false, remoteWrite = false, switching = false, timer = null, baseline = {};
+  let accountSwitchPromise = Promise.resolve(), accountSwitchError = null;
   const endpoint = uid => "https://firestore.googleapis.com/v1/projects/" + encodeURIComponent(cfg.projectId) + "/databases/(default)/documents/users/" + encodeURIComponent(uid) + "/workspace/main";
   const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const meaningful = value => typeof value === "string" ? value.length > 0 : Array.isArray(value) ? value.length > 0 : value && typeof value === "object" ? Object.keys(value).length > 0 : value !== undefined && value !== null && value !== false && value !== 0;
   const isConflict = error => error.status === 409 || error.status === 412 || error.code === "ABORTED" || error.code === "FAILED_PRECONDITION";
   function encodeData(data) {
     const serialized = JSON.stringify(data);
-    if (serialized.length > 850000) throw new Error("Your workspace is too large to sync in one document.");
+    if (new TextEncoder().encode(serialized).length > 850000) throw new Error("Your workspace is too large to sync in one document.");
     return { fields: { data: { stringValue: serialized }, updatedAt: { timestampValue: new Date().toISOString() } } };
   }
   function decodeData(doc) { try { const raw = doc?.fields?.data?.stringValue; return typeof raw === "string" ? JSON.parse(raw) : null; } catch { return null; } }
   function setStatus(text) { const node = document.getElementById("status"); if (node) node.textContent = text; }
   async function localData() { const data = await chrome.storage.local.get(keys); return Object.fromEntries(keys.filter(key => data[key] !== undefined).map(key => [key, data[key]])); }
+  async function saveLocalCache(uid) {
+    const data = await localData();
+    await chrome.storage.local.set({ [cacheKey(uid)]: data });
+  }
+  async function switchLocalWorkspace(uid, ticket) {
+    switching = true;
+    try {
+      let stored = await chrome.storage.local.get([activeUidKey, legacyMigratedKey, cacheKey(uid)]);
+      const previousUid = stored[activeUidKey];
+      if (previousUid) {
+        await saveLocalCache(previousUid);
+        stored = await chrome.storage.local.get([activeUidKey, legacyMigratedKey, cacheKey(uid)]);
+      }
+      assertCurrent(uid, ticket);
+      let next = stored[cacheKey(uid)];
+      if (!next && !stored[legacyMigratedKey] && !previousUid) next = await localData();
+      next = next && typeof next === "object" ? next : {};
+      const staleKeys = keys.filter(key => next[key] === undefined);
+      if (staleKeys.length) await chrome.storage.local.remove(staleKeys);
+      remoteWrite = true;
+      try { await chrome.storage.local.set(next); }
+      finally { remoteWrite = false; }
+      await chrome.storage.local.set({ [activeUidKey]: uid, [legacyMigratedKey]: true });
+      await saveLocalCache(uid);
+    } finally { switching = false; }
+  }
   function assertCurrent(uid, ticket) { if (!activeUser || activeUser.uid !== uid || generation !== ticket) throw new Error("Account changed during sync; retry after signing in."); }
   async function request(uid, ticket, url, options = {}) {
     assertCurrent(uid, ticket);
@@ -76,6 +106,7 @@
         if (!cloud || typeof cloud !== "object" || Array.isArray(cloud)) throw new Error("The cloud workspace data is invalid; local data was left unchanged.");
         const merged = merge(local, cloud, baseline);
         remoteWrite = true; try { await chrome.storage.local.set(merged.data); } finally { remoteWrite = false; }
+        await saveLocalCache(uid);
         if (!equal(merged.data, cloud)) { await saveBaseline(uid, cloud); await pushNow(uid, ticket); }
         else { await saveBaseline(uid, cloud); setStatus(merged.conflicts.length ? "Cloud sync found local edits; kept local values for: " + merged.conflicts.join(", ") : "Workspace synced from your PostFlow account."); }
       }
@@ -90,13 +121,41 @@
     const uid = event.detail?.user?.uid; if (!uid || uid === activeUser?.uid) return;
     generation++; activeUser = { uid }; dirty = false; clearTimeout(timer); const ticket = generation;
     if (!cfg.projectId) { setStatus("Firebase setup needed: configure extension/firebase-config.js."); return; }
-    pullOrSeed(uid, ticket);
+    accountSwitchError = null;
+    accountSwitchPromise = switchLocalWorkspace(uid, ticket)
+      .then(() => pullOrSeed(uid, ticket))
+      .then(() => {
+        if (activeUser?.uid === uid && generation === ticket) window.dispatchEvent(new CustomEvent("postflow:workspace-switched", { detail: { uid } }));
+      })
+      .catch(error => {
+        accountSwitchError = error;
+        if (activeUser?.uid === uid && generation === ticket) setStatus("Account workspace switch failed: " + error.message);
+      });
   });
-  window.addEventListener("postflow:logout", () => { generation++; activeUser = null; dirty = false; clearTimeout(timer); });
+  window.addEventListener("postflow:logout", () => {
+    const uid = activeUser?.uid;
+    generation++; activeUser = null; dirty = false; clearTimeout(timer);
+    if (!uid) return;
+    switching = true;
+    saveLocalCache(uid)
+      .then(() => chrome.storage.local.set({ [activeUidKey]: null }))
+      .catch(error => setStatus("Local account cache could not be saved: " + error.message))
+      .finally(() => { switching = false; });
+  });
   chrome.storage.onChanged.addListener((changes, area) => {
-    if (area !== "local" || remoteWrite || !activeUser) return;
-    if (keys.some(key => Object.prototype.hasOwnProperty.call(changes, key))) schedulePush();
+    if (area !== "local" || remoteWrite || switching || !activeUser) return;
+    if (keys.some(key => Object.prototype.hasOwnProperty.call(changes, key))) {
+      const uid = activeUser.uid, ticket = generation;
+      saveLocalCache(uid).then(() => { if (activeUser?.uid === uid && generation === ticket) schedulePush(); });
+    }
   });
   window.addEventListener("online", schedulePush);
-  window.PostFlowCloudSync = { syncNow: () => activeUser ? pushNow(activeUser.uid, generation) : Promise.resolve(), isReady: () => Boolean(cfg.projectId && activeUser) };
+  window.PostFlowCloudSync = {
+    syncNow: () => activeUser ? pushNow(activeUser.uid, generation) : Promise.resolve(),
+    waitUntilReady: async uid => {
+      if (activeUser?.uid === uid) await accountSwitchPromise;
+      if (accountSwitchError && activeUser?.uid === uid) throw accountSwitchError;
+    },
+    isReady: () => Boolean(cfg.projectId && activeUser),
+  };
 })();

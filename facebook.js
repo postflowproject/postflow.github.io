@@ -1,5 +1,5 @@
 // Facebook SDK login, Page discovery, and Graph API publishing.
-const GRAPH_VERSION = "v23.0";
+const GRAPH_VERSION = "v26.0";
 let sdkPromise = null;
 let initializedAppId = null;
 
@@ -86,9 +86,37 @@ async function graphRequest(url, options = {}) {
   let data;
   try { data = await response.json(); } catch { throw new Error("Facebook returned an unreadable response."); }
   if (!response.ok || data?.error) {
-    throw new Error(data?.error?.message || `Facebook request failed (${response.status}).`);
+    const error = new Error(data?.error?.message || `Facebook request failed (${response.status}).`);
+    error.code = data?.error?.code;
+    error.subcode = data?.error?.error_subcode;
+    throw error;
   }
   return data;
+}
+
+function graphUpload(url, body, onProgress) {
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", url);
+    request.upload.onprogress = event => {
+      if (event.lengthComputable && onProgress) onProgress(Math.min(88, Math.round((event.loaded / event.total) * 88)));
+    };
+    request.onerror = () => reject(new Error("Network connection dropped during Facebook upload. Check the Page before retrying to avoid a duplicate."));
+    request.onload = () => {
+      let data;
+      try { data = JSON.parse(request.responseText); } catch { reject(new Error("Facebook returned an unreadable upload response.")); return; }
+      if (request.status < 200 || request.status >= 300 || data?.error) {
+        const error = new Error(data?.error?.message || `Facebook upload failed (${request.status}).`);
+        error.code = data?.error?.code;
+        error.subcode = data?.error?.error_subcode;
+        reject(error);
+        return;
+      }
+      if (onProgress) onProgress(90);
+      resolve(data);
+    };
+    request.send(body);
+  });
 }
 
 export async function fetchFacebookPages(accessToken) {
@@ -102,25 +130,36 @@ export async function fetchFacebookPages(accessToken) {
   return data.data || [];
 }
 
-export async function publishToFacebookGraph({ pageId, pageAccessToken, caption = "", mediaFile }) {
+export async function publishToFacebookGraph({ pageId, pageAccessToken, caption = "", mediaFile, onProgress }) {
   if (!pageId || !pageAccessToken) throw new Error("This destination has no valid Facebook Page access token.");
 
-  const endpoint = mediaFile
-    ? `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pageId)}/photos`
-    : `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pageId)}/feed`;
+  const video = mediaFile?.type?.startsWith("video/");
+  const image = mediaFile?.type?.startsWith("image/");
+  if (mediaFile && !image && !video) throw new Error("Choose an image or video file supported by Facebook Pages.");
+  const edge = video ? "videos" : image ? "photos" : "feed";
+  const endpoint = `https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(pageId)}/${edge}`;
 
   const body = new FormData();
   body.append("access_token", pageAccessToken);
   if (mediaFile) {
-    if (!mediaFile.type?.startsWith("image/")) {
-      throw new Error("Direct publishing currently supports images. Video publishing needs Facebook's video upload endpoint.");
-    }
     body.append("source", mediaFile, mediaFile.name || "post-image");
-    body.append("caption", caption);
+    body.append(video ? "description" : "caption", caption);
   } else {
     if (!caption.trim()) throw new Error("Add a caption or attach an image before publishing.");
     body.append("message", caption);
   }
 
+  if (mediaFile) return graphUpload(endpoint, body, onProgress);
   return graphRequest(endpoint, { method: "POST", body });
+}
+
+export async function fetchFacebookPostPermalink(postId, pageAccessToken) {
+  if (!postId || !pageAccessToken) return "";
+  const params = new URLSearchParams({ fields: "permalink_url", access_token: pageAccessToken });
+  try {
+    const data = await graphRequest(`https://graph.facebook.com/${GRAPH_VERSION}/${encodeURIComponent(postId)}?${params}`);
+    return data.permalink_url || "";
+  } catch {
+    return "";
+  }
 }

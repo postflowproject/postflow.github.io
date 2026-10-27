@@ -52,6 +52,8 @@
     render();
   }
 
+  window.addEventListener("postflow:workspace-switched", () => loadQueue().catch(() => say("Couldn't refresh the account review queue.")));
+
   async function saveQueue() {
     await chrome.storage.local.set({ [KEY]: jobs });
     render();

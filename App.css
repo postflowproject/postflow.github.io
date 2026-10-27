@@ -1893,3 +1893,15 @@ button:not(:disabled) {
 .login-notice{margin:16px 0 0;color:#fda4af;font-size:12px;line-height:1.5}
 .login-footnote{margin:22px 0 0;color:#777f95;font-size:11px;line-height:1.6}
 @media(max-width:480px){.login-screen{padding:16px}.login-card{padding:34px 23px 28px}}
+.login-auth-form{text-align:left;margin-top:22px;display:flex;flex-direction:column;gap:10px}
+.login-auth-form label{color:#c6cada;font-size:12px;font-weight:600}
+.login-auth-input{width:100%;min-height:46px;padding:0 13px;border:1px solid rgba(255,255,255,.12);border-radius:11px;background:rgba(255,255,255,.045);color:#f1f2f8;font:inherit}
+.login-auth-input:focus{outline:2px solid rgba(167,139,250,.65);outline-offset:1px}
+.login-remember{display:flex;align-items:center;gap:9px;margin:5px 0;color:#aeb3c5!important;font-weight:400!important}
+.login-remember input{accent-color:#a78bfa}
+.login-auth-submit{width:100%;min-height:48px;border:0;border-radius:12px;background:linear-gradient(135deg,#9b7cf4,#7253df);color:white;font-size:14px;font-weight:700}
+.login-auth-submit:disabled{opacity:.55;cursor:wait}
+.login-auth-links{display:flex;justify-content:space-between;gap:12px;margin-top:16px}
+.login-auth-links button{padding:4px;border:0;background:none;color:#b8a4ff;font-size:12px}
+.login-auth-links button:hover{text-decoration:underline}
+.login-auth-form .login-notice{margin:0;padding:10px;border-radius:9px;background:rgba(251,113,133,.09);color:#ff9aaa;font-size:12px}
