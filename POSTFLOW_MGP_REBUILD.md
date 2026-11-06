@@ -1,75 +1,37 @@
 # PostFlow Multi-Group Poster Rebuild
 
-This branch is the development track for an original PostFlow implementation informed by the reference extension retained in `bffigfjkllaipccbpnmckgfhmdmlgdda/1.2.9.93_0/`.
+This is the development track for PostFlow. Work only on `postflow-mgp-rebuild`; do not modify `main`.
 
-## Reference audit — initial findings
+## Product requirements
 
-Reference extension version: 1.2.9.93.
+- Facebook only.
+- Completely free: no subscriptions, paid tiers, billing, or paid APIs.
+- No Firebase, Supabase, cloud database, PostFlow email/password account, or cloud sync.
+- React/Vite dashboard state is stored in browser localStorage and media in IndexedDB.
+- Extension campaigns, groups, selections, history and review queue are stored in `chrome.storage.local`.
+- Facebook authentication is handled by Facebook in the user's browser. PostFlow does not collect or store Facebook passwords.
+- Group posting stays review-first and user-controlled. PostFlow can prepare captions, open a selected group and track progress; the user performs the final publish action.
 
-Key components:
-- `mgp-service-worker.js` (~1.33 MB): MV3 background/service worker; likely central coordinator for queues, alarms, storage, posting workflow, authentication, and remote-service calls. Needs targeted call-graph review.
-- `mgp-content.js` (~463 KB): Facebook-page interaction and content-script logic.
-- `mgp-engine-core.js` (~276 KB), `mgp-engine-safety.js`, `mgp-engine-ui.js`, `mgp-engine.html`: posting engine UI and safety-related logic.
-- `mgp-ai-bridge.js`, `mgp-alwaysactive-*.js`, `mgp-bootstrap.js`: supporting bridge/runtime code.
-- `firebase-app-compat.js`, `firebase-firestore-compat.js`: Firebase client SDKs.
-- `assets/index-*.js`, `assets/App-*.js`: bundled frontend UI.
-- `manifest.json`: declares Chrome storage, cookies, tabs, scripting, alarms, idle, power and declarative network request permissions; Facebook, Firebase and Multi Group Poster service domains are permitted.
+## Reference extension
 
-Remote-service domains present in the manifest include:
-- `login.multiplegroupposter.com`, `auth.multiplegroupposter.com`, `auth2.multiplegroupposter.com`
-- `server.multiplegroupposter.com`, `subscription.multiplegroupposter.com`
-- `firestore.googleapis.com`, `firebasestorage.googleapis.com`
+The original Multi Group Poster reference bundle remains under `bffigfjkllaipccbpnmckgfhmdmlgdda/1.2.9.93_0/` for behaviour research only. Its bundled Firebase SDKs and vendor services are not PostFlow dependencies and must not be called by PostFlow.
 
-The folder is a browser extension client, not proof that the vendor's server-side source is included. Server behaviour and credentials cannot be recreated from the extension alone; we need to identify the client request contracts and implement our own services.
+## Current implementation
 
-## Rebuild approach
+- React/Vite content dashboard with drafts, queue, media library, history, settings and Facebook Page connection.
+- Chrome extension with local campaign drafts, Facebook group scanning, group selection, caption tools, activity tracking and review queue.
+- Firebase authentication, Firestore sync, configuration, rules and setup files have been removed.
+- Both dashboard and extension use local browser storage only.
 
-Build PostFlow's own code and backend, using the reference only to understand feature behaviour and integration boundaries. Do not copy vendor branding, private credentials, or attempt to impersonate its services.
+## Important Facebook limitation
 
-### Phase 1 — trace the client
-1. Inspect the reference manifest, service worker, content script and UI bundle.
-2. Identify storage keys, message types, queue/job state transitions, alarm usage and external HTTP/Firebase calls.
-3. Document which capabilities run locally and which depend on vendor servers.
-4. Separate reusable generic concepts from vendor-specific/licensed implementation.
+Meta removed the Groups API and group-publishing permissions. PostFlow cannot use an official Graph API endpoint to list every group or publish to Groups. The extension can inspect group links that Facebook has loaded in the user's signed-in browser page; the user may need to scroll/load more and scan again. Discovery is not guaranteed to include every group and may need maintenance when Facebook changes its interface.
 
-### Phase 2 — build the PostFlow foundation
-1. Keep the current dashboard and extension as the UI baseline.
-2. Add a small API layer and persistent database for campaigns, groups, queue jobs and job results only if cross-device accounts/sync are actually wanted.
-3. Add a job lifecycle: queued → running → succeeded/failed/cancelled, with timestamps, retry limits and visible errors.
-4. Keep Facebook session-dependent actions in the user's browser; do not send Facebook cookies/session tokens to the backend.
-5. Require review and explicit user action for publishing; respect group permissions, platform limits and user safety.
+## Next tasks
 
-### Phase 3 — test and release
-1. Add deterministic tests for queue transitions, retries, persistence and duplicate jobs.
-2. Test group discovery on the actual Facebook layouts used by the user.
-3. Install the extension from one stable folder and update files in place; reload, do not uninstall/reinstall for each iteration.
-4. Merge to `main` only after the end-to-end workflow has been tested.
-
-## First implementation (2026-10-25)
-
-- Added `extension/queue-engine.js` and loaded it from `dashboard.html` on this branch.
-- Queue can be built from the currently selected groups and saved caption; each job stores group URL/name, caption, optional first comment, campaign label, order and status.
-- Queue can open a group, mark an item manually reviewed, undo that state, and clear the queue. All state stays in `chrome.storage.local`.
-- This is a first working foundation, not a full clone: it does not auto-publish, upload media, sync across devices, or call a remote backend. Facebook publication is not verified.
-- Browser test and automated syntax/behaviour tests remain outstanding.
-
-## Account, Firebase authentication and cloud sync (2026-10-26)
-
-- The account UI supports full-screen login, account creation, password reset, remembered sessions, logout and a workspace gate.
-- Replaced the Supabase client scaffold with Firebase Authentication's email/password REST API. Public Firebase Web app settings belong in `extension/firebase-config.js`; no service-account key belongs in the extension.
-- Added Firestore REST sync for the current workspace keys (campaigns, groups, selection/progress, drafts, caption history and review queue). The first sign-in seeds a new cloud workspace from local data; an existing cloud workspace is loaded into the current Chrome profile.
-- Added `firebase/firestore.rules` restricting workspace access to the matching authenticated UID.
-- Removed the old Supabase placeholder/schema. No billing or subscription logic is included.
-- **Not yet live-tested:** this repository still needs a real Firebase project configuration, Email/Password provider enabled, and a default Firestore database with the rules deployed. Chrome-extension runtime/browser testing remains outstanding. The Firebase REST approach is used here so the extension doesn't need a bundled SDK/build step.
-
-## Status
-
-- [x] Create isolated development branch.
-- [x] Record initial reference inventory and backend boundary.
-- [x] Trace representative worker message handlers, retry/alarm storage and external service endpoints (see `REFERENCE_EXTENSION_TRACE.md`).
-- [ ] Finish tracing exact remote request/response contracts; current audit is an inventory, not a complete contract map.
-- [x] Implement a first persistent local review queue in `extension/queue-engine.js`: selected groups + saved caption/comment become ordered jobs with pending/opened/completed states and timestamps, persisted in `chrome.storage.local`.
-- [x] Draft a PostFlow-owned campaign/group/job schema and state machine in `REFERENCE_EXTENSION_TRACE.md`.
-- [x] Add Firebase Authentication client flows and Firestore REST workspace sync scaffold.\n- [x] Add per-user Firestore security rules.\n- [ ] Configure a real Firebase project and test account creation, login, password reset, session refresh/logout and cross-device sync in Chrome.
-- [ ] Add automated tests for queue transitions and duplicate jobs; the local queue is not yet automated-tested.
-- [ ] Integrate the extension and validate end-to-end.
+1. Improve group discovery and ensure each result has a readable group name, icon/avatar when available, and a selection checkbox.
+2. Test the scanner using the user's normal Facebook browser session.
+3. Confirm selected groups persist after closing and reopening the extension.
+4. Test the review queue, caption insertion and manual posting flow with a group the user controls.
+5. Run `npm run build` and `npm run lint`; load the extension unpacked and test it in Chrome.
+6. Keep all changes on this branch until the complete workflow is verified.
