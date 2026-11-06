@@ -10,10 +10,7 @@
   ],
   "host_permissions": [
     "https://facebook.com/*",
-    "https://www.facebook.com/*",
-    "https://identitytoolkit.googleapis.com/*",
-    "https://securetoken.googleapis.com/*",
-    "https://firestore.googleapis.com/*"
+    "https://www.facebook.com/*"
   ],
   "background": {
     "service_worker": "background.js"
