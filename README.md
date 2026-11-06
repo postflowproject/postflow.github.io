@@ -1,16 +1,30 @@
-# React + Vite
+# PostFlow
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A Facebook-focused content planning dashboard and Chrome extension.
 
-Currently, two official plugins are available:
+## Current direction
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Free to use: no paid plans, subscriptions, billing, or paid backend.
+- No Firebase, Supabase, or PostFlow account system.
+- Dashboard data is stored locally in the browser; extension data is stored in `chrome.storage.local`.
+- Facebook group discovery reads links currently loaded in the user's Facebook pages. It cannot guarantee every joined group because Meta no longer provides the Groups API.
+- Posting to Facebook Groups remains manual: PostFlow prepares captions and a review queue, then the user reviews and publishes on Facebook.
 
-## React Compiler
+## Development
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+Work on the `postflow-mgp-rebuild` branch only.
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev
+npm run build
+npm run lint
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+For the Chrome extension, open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select the `extension` folder.
+
+## Next work
+
+1. Finish the Facebook group scanner and show useful group names/icons with checkboxes.
+2. Test scanning against the user's logged-in Facebook session.
+3. Verify the review queue and a user-confirmed manual test post.
