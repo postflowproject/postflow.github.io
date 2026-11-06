@@ -1408,7 +1408,7 @@ export default function App() {
             <div>
               <span className="eyebrow">LOCAL WORKSPACE</span>
               <h2>Storage and privacy</h2>
-              <p>Your campaigns, drafts, queue, history and settings stay in this browser. No PostFlow account, cloud sync, Firebase or subscription is required.</p>
+              <p>Your campaigns, drafts, queue, history and settings stay in this browser. No PostFlow account or cloud service is required.</p>
             </div>
           </div>
           <div className="settings-list">
