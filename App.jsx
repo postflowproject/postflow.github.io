@@ -15,7 +15,6 @@ import {
   csvDateTime,
 } from "./utils";
 import { fbLogin, fetchFacebookPages, fetchFacebookPostPermalink, publishToFacebookGraph } from "./facebook";
-import { createAccount, loadAndSyncWorkspace, restoreSession, sanitizeWorkspace, sendPasswordReset, signIn, signOut, syncWorkspace } from "./firebase-web";
 import { StatCard, EmptyState, StatusBadge } from "./UI";
 import "./App.css";
 
@@ -29,16 +28,7 @@ export default function App() {
   const [pages, setPages] = useState(initial.pages);
   const [settings, setSettings] = useState(initial.settings);
 
-  const [currentUser, setCurrentUser] = useState(null);
-  const [authReady, setAuthReady] = useState(false);
-  const [authMode, setAuthMode] = useState("login");
-  const [authEmail, setAuthEmail] = useState("");
-  const [authPassword, setAuthPassword] = useState("");
-  const [authConfirm, setAuthConfirm] = useState("");
-  const [rememberSession, setRememberSession] = useState(true);
-  const [authMessage, setAuthMessage] = useState("");
-  const [authBusy, setAuthBusy] = useState(false);
-  const [syncStatus, setSyncStatus] = useState("Workspace sync is preparing.");
+  const [saveStatus, setSaveStatus] = useState("Saved locally");
 
   // Facebook Connection State
   const [fbConnected, setFbConnected] = useState(false);
@@ -74,137 +64,26 @@ export default function App() {
   const pausedRef = useRef(false);
   const stopRef = useRef(false);
   const pageTokensRef = useRef({});
-  const hydratedUserRef = useRef(null);
-  const authGenerationRef = useRef(0);
-  const currentUserRef = useRef(null);
-  const hydrateGuardRef = useRef(false);
 
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { runningRef.current = queueRunning; }, [queueRunning]);
   useEffect(() => { pausedRef.current = queuePaused; }, [queuePaused]);
 
   const persist = useCallback(() => {
-    if (!currentUser || hydratedUserRef.current !== currentUser.uid) return;
     try {
-      const key = `${STORAGE_KEY}:${currentUser.uid}`;
-      localStorage.setItem(key, JSON.stringify(sanitizeWorkspace({ drafts, queue, history, pages, settings })));
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({ drafts, queue, history, pages, settings }));
+      setSaveStatus("Saved locally");
       setStorageError("");
     } catch (error) {
       console.error("PostFlow persistence failed:", error);
       setStorageError("Browser storage is full or unavailable. Remove old data or media and try again.");
+      setSaveStatus("Save failed");
     }
-  }, [currentUser, drafts, queue, history, pages, settings]);
+  }, [drafts, queue, history, pages, settings]);
 
   useEffect(() => {
-    if (settings.autoSave && !hydrateGuardRef.current) persist();
+    if (settings.autoSave) persist();
   }, [settings.autoSave, persist]);
-
-  const activateSession = useCallback(async (authSession) => {
-    const generation = ++authGenerationRef.current;
-    const user = authSession.user;
-    setAuthReady(false);
-    setSyncStatus("Loading your PostFlow workspace…");
-    const accountKey = `${STORAGE_KEY}:${user.uid}`;
-    const hasAccountCopy = Boolean(localStorage.getItem(accountKey));
-    const legacyMigrated = localStorage.getItem("postflow.firebase.legacy-migrated") === "true";
-    const hasLegacyCopy = !legacyMigrated && Boolean(localStorage.getItem(STORAGE_KEY));
-    const cached = createInitialState(user.uid);
-    const localWorkspace = sanitizeWorkspace({
-      drafts: cached.drafts, queue: cached.queue, history: cached.history, pages: cached.pages, settings: cached.settings,
-    });
-
-    try {
-      const result = await loadAndSyncWorkspace(user.uid, localWorkspace, hasAccountCopy || hasLegacyCopy);
-      if (generation !== authGenerationRef.current) return;
-      hydrateGuardRef.current = true;
-      setDrafts(result.data.drafts || []);
-      setQueue(result.data.queue || []);
-      setHistory(result.data.history || []);
-      setPages(result.data.pages || []);
-      setSettings({ ...DEFAULT_SETTINGS, ...(result.data.settings || {}) });
-      localStorage.setItem(accountKey, JSON.stringify(sanitizeWorkspace(result.data)));
-      if (hasLegacyCopy) {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.setItem("postflow.firebase.legacy-migrated", "true");
-      }
-      currentUserRef.current = user;
-      hydratedUserRef.current = user.uid;
-      setCurrentUser(user);
-      setSyncStatus(result.status);
-      setAuthReady(true);
-      queueMicrotask(() => { hydrateGuardRef.current = false; });
-    } catch (error) {
-      if (generation !== authGenerationRef.current) return;
-      hydrateGuardRef.current = true;
-      setDrafts(localWorkspace.drafts || []);
-      setQueue(localWorkspace.queue || []);
-      setHistory(localWorkspace.history || []);
-      setPages(localWorkspace.pages || []);
-      setSettings({ ...DEFAULT_SETTINGS, ...(localWorkspace.settings || {}) });
-      localStorage.setItem(accountKey, JSON.stringify(localWorkspace));
-      if (hasLegacyCopy) {
-        localStorage.removeItem(STORAGE_KEY);
-        localStorage.setItem("postflow.firebase.legacy-migrated", "true");
-      }
-      currentUserRef.current = user;
-      hydratedUserRef.current = user.uid;
-      setCurrentUser(user);
-      setSyncStatus(`Showing this device's saved workspace. Cloud sync paused: ${error.message}`);
-      setAuthReady(true);
-      queueMicrotask(() => { hydrateGuardRef.current = false; });
-    }
-  }, []);
-
-  useEffect(() => {
-    const generation = ++authGenerationRef.current;
-    restoreSession().then((saved) => {
-      if (generation !== authGenerationRef.current) return;
-      if (saved) activateSession(saved);
-      else setAuthReady(true);
-    }).catch(() => {
-      if (generation === authGenerationRef.current) setAuthReady(true);
-    });
-    return () => { authGenerationRef.current += 1; };
-  }, [activateSession]);
-
-  useEffect(() => {
-    if (!authReady || !currentUser || hydratedUserRef.current !== currentUser.uid || hydrateGuardRef.current) return undefined;
-    const uid = currentUser.uid;
-    const snapshot = sanitizeWorkspace({ drafts, queue, history, pages, settings });
-    let cancelled = false;
-    const timer = window.setTimeout(async () => {
-      try {
-        const result = await syncWorkspace(uid, snapshot);
-        if (!cancelled && currentUserRef.current?.uid === uid) {
-          const syncedWorkspace = {
-            drafts: result.data.drafts || [],
-            queue: result.data.queue || [],
-            history: result.data.history || [],
-            pages: result.data.pages || [],
-            settings: { ...DEFAULT_SETTINGS, ...(result.data.settings || {}) },
-          };
-          if (JSON.stringify(syncedWorkspace) !== JSON.stringify(snapshot)) {
-            try {
-              localStorage.setItem(`${STORAGE_KEY}:${uid}`, JSON.stringify(sanitizeWorkspace(syncedWorkspace)));
-            } catch {
-              setStorageError("Browser storage is full or unavailable. Remove old data or media and try again.");
-            }
-            setDrafts(syncedWorkspace.drafts);
-            setQueue(syncedWorkspace.queue);
-            setHistory(syncedWorkspace.history);
-            setPages(syncedWorkspace.pages);
-            setSettings(syncedWorkspace.settings);
-          }
-          setSyncStatus(result.conflicts.length
-            ? "Synced. This device's edit was kept for conflicting items; edited items were preserved over deletions."
-            : "Synced to your PostFlow account.");
-        }
-      } catch (error) {
-        if (!cancelled && currentUserRef.current?.uid === uid) setSyncStatus(`Cloud sync paused: ${error.message}`);
-      }
-    }, 900);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [authReady, currentUser, drafts, queue, history, pages, settings]);
 
   const refreshMedia = useCallback(async () => {
     try {
@@ -605,7 +484,7 @@ export default function App() {
           const processingQueue = queueRef.current.map((post) => (post.id === activeId ? { ...post, status: "Processing", progress: 10 } : post));
           queueRef.current = processingQueue;
           setQueue(processingQueue);
-          localStorage.setItem(`${STORAGE_KEY}:${currentUser.uid}`, JSON.stringify(sanitizeWorkspace({ drafts, queue: processingQueue, history, pages, settings })));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ drafts, queue: processingQueue, history, pages, settings }));
 
           if (isRealFbPage) {
             if ((next.mediaIds || []).length > 1) {
@@ -712,49 +591,7 @@ export default function App() {
     setDrafts([]); setQueue([]); setHistory([]); setPages([]); setSettings(DEFAULT_SETTINGS); setSelectedMedia([]);
     setFbConnected(false); pageTokensRef.current = {};
     localStorage.removeItem(STORAGE_KEY);
-    if (currentUser) localStorage.removeItem(`${STORAGE_KEY}:${currentUser.uid}`);
     clearMedia().then(refreshMedia).then(() => notify("All PostFlow local data has been cleared.")).catch(console.error);
-  }
-
-  async function handleAuthSubmit(event) {
-    event.preventDefault();
-    const email = authEmail.trim();
-    if (!email) { setAuthMessage("Enter your email address."); return; }
-    if (authMode === "reset") {
-      setAuthBusy(true); setAuthMessage("");
-      try {
-        await sendPasswordReset(email);
-        setAuthMessage("If an account exists for that email, a password reset link has been sent.");
-      } catch (error) { setAuthMessage(error.message); }
-      finally { setAuthBusy(false); }
-      return;
-    }
-    if (authPassword.length < 6) { setAuthMessage("Use a password with at least 6 characters."); return; }
-    if (authMode === "signup" && authPassword !== authConfirm) { setAuthMessage("The passwords do not match."); return; }
-    setAuthBusy(true); setAuthMessage("");
-    try {
-      const authSession = authMode === "signup"
-        ? await createAccount(email, authPassword, rememberSession)
-        : await signIn(email, authPassword, rememberSession);
-      setAuthPassword(""); setAuthConfirm("");
-      await activateSession(authSession);
-    } catch (error) { setAuthMessage(error.message || "Could not sign in. Check your connection and Firebase setup."); }
-    finally { setAuthBusy(false); }
-  }
-
-  async function handleSignOut() {
-    authGenerationRef.current += 1;
-    stopRef.current = true;
-    pageTokensRef.current = {};
-    setFbConnected(false);
-    await signOut();
-    currentUserRef.current = null;
-    hydratedUserRef.current = null;
-    setCurrentUser(null);
-    setAuthMode("login");
-    setAuthPassword("");
-    setAuthMessage("");
-    setAuthReady(true);
   }
 
   const filteredMedia = useMemo(() => media.filter((item) => {
@@ -1569,26 +1406,15 @@ export default function App() {
         <section className="panel">
           <div className="panel-heading">
             <div>
-              <span className="eyebrow">POSTFLOW ACCOUNT</span>
-              <h2>Workspace sync</h2>
-              <p>Signed in as {currentUser?.email || "your PostFlow account"}. Facebook credentials are never saved with this workspace.</p>
+              <span className="eyebrow">LOCAL WORKSPACE</span>
+              <h2>Storage and privacy</h2>
+              <p>Your campaigns, drafts, queue, history and settings stay in this browser. No PostFlow account, cloud sync, Firebase or subscription is required.</p>
             </div>
           </div>
           <div className="settings-list">
             <div className="setting-row">
-              <div><strong>Cloud status</strong><p>{syncStatus}</p></div>
-              <button className="btn btn-secondary" type="button" onClick={async () => {
-                try {
-                  const result = await syncWorkspace(currentUser.uid, sanitizeWorkspace({ drafts, queue, history, pages, settings }));
-                  const data = result.data;
-                  setDrafts(data.drafts || []); setQueue(data.queue || []); setHistory(data.history || []); setPages(data.pages || []); setSettings({ ...DEFAULT_SETTINGS, ...(data.settings || {}) });
-                  setSyncStatus(result.conflicts.length ? "Synced with conflict handling; this device's version was kept for conflicting edits." : "Synced to your PostFlow account.");
-                } catch (error) { setSyncStatus(`Cloud sync paused: ${error.message}`); }
-              }}>Sync now</button>
-            </div>
-            <div className="setting-row">
-              <div><strong>PostFlow sign-in</strong><p>Email and password managed by Firebase Authentication.</p></div>
-              <button className="btn btn-secondary" type="button" onClick={handleSignOut}>Sign out</button>
+              <div><strong>Workspace storage</strong><p>{saveStatus}. Data is saved automatically in this browser.</p></div>
+              <span className="status-badge">On this device</span>
             </div>
           </div>
         </section>
@@ -1671,42 +1497,6 @@ export default function App() {
 
   const [pageTitle, pageSubtitle] = pageDetails[activePage] || pageDetails.dashboard;
 
-  // Firebase protects the PostFlow workspace; Facebook Page authorization is a separate connection.
-  if (!authReady || !currentUser) {
-    const signup = authMode === "signup";
-    const reset = authMode === "reset";
-    return (
-      <main className="login-screen">
-        <section className="login-card" aria-labelledby="postflow-auth-title">
-          <div className="login-brand-mark"><span>P</span></div>
-          <p className="login-eyebrow">POSTFLOW ACCOUNT</p>
-          <h1 id="postflow-auth-title">{!authReady ? "Loading your workspace" : signup ? "Create your account" : reset ? "Reset your password" : "Welcome back"}</h1>
-          <p className="login-description">{!authReady ? "Checking your saved sign-in and workspace…" : signup ? "Create a free account to keep your PostFlow workspace in sync." : reset ? "We’ll send a password reset link to your email." : "Sign in to open your workspace and sync across devices."}</p>
-          {authReady && <form className="login-auth-form" onSubmit={handleAuthSubmit}>
-            <label htmlFor="postflow-auth-email">Email address</label>
-            <input id="postflow-auth-email" className="login-auth-input" type="email" autoComplete="email" required value={authEmail} onChange={event => setAuthEmail(event.target.value)} placeholder="you@example.com" />
-            {!reset && <>
-              <label htmlFor="postflow-auth-password">Password</label>
-              <input id="postflow-auth-password" className="login-auth-input" type="password" autoComplete={signup ? "new-password" : "current-password"} minLength={6} required value={authPassword} onChange={event => setAuthPassword(event.target.value)} placeholder="At least 6 characters" />
-            </>}
-            {signup && <>
-              <label htmlFor="postflow-auth-confirm">Confirm password</label>
-              <input id="postflow-auth-confirm" className="login-auth-input" type="password" autoComplete="new-password" minLength={6} required value={authConfirm} onChange={event => setAuthConfirm(event.target.value)} placeholder="Enter your password again" />
-            </>}
-            {!reset && <label className="login-remember"><input type="checkbox" checked={rememberSession} onChange={event => setRememberSession(event.target.checked)} /> Keep me signed in on this device</label>}
-            {authMessage && <p className="login-notice" role="status">{authMessage}</p>}
-            <button className="login-auth-submit" disabled={authBusy} type="submit">{authBusy ? "Please wait…" : reset ? "Send reset link" : signup ? "Create account" : "Sign in"}</button>
-          </form>}
-          {authReady && <div className="login-auth-links">
-            <button type="button" onClick={() => { setAuthMode(signup ? "login" : "signup"); setAuthMessage(""); }}>{signup ? "Already have an account? Sign in" : "Create account"}</button>
-            {!signup && <button type="button" onClick={() => { setAuthMode(reset ? "login" : "reset"); setAuthMessage(""); }}>{reset ? "Back to sign in" : "Forgot password?"}</button>}
-          </div>}
-          <p className="login-footnote">Your PostFlow account is separate from Facebook. Connect a Facebook Page after signing in.</p>
-        </section>
-      </main>
-    );
-  }
-
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -1761,8 +1551,7 @@ export default function App() {
             <span>Workspace</span><span className="breadcrumb-slash">/</span><strong>{pageTitle}</strong>
           </div>
           <div className="topbar-actions">
-            <span className="save-indicator" title={syncStatus}><span /> {syncStatus.startsWith("Cloud sync paused") ? "Sync paused" : "Cloud sync"}</span>
-            <button className="btn btn-secondary btn-small" type="button" onClick={handleSignOut}>Sign out</button>
+            <span className="save-indicator" title={saveStatus}><span /> {saveStatus}</span>
             <button className="topbar-avatar" onClick={() => setActivePage("settings")}>P</button>
           </div>
         </header>
