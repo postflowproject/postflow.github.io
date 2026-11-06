@@ -27,7 +27,14 @@ export function makeId() {
 
 export function loadSavedState() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    let raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) {
+      const oldAccountKeys = Object.keys(localStorage).filter(key => key.startsWith(`${STORAGE_KEY}:`));
+      if (oldAccountKeys.length === 1) {
+        raw = localStorage.getItem(oldAccountKeys[0]);
+        if (raw) localStorage.setItem(STORAGE_KEY, raw);
+      }
+    }
     if (!raw) return null;
     const saved = JSON.parse(raw);
     const stripSecrets = value => {
