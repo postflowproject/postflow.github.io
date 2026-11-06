@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "PostFlow Group Post Helper",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Prepare Facebook group posts, discover currently loaded group links, and choose destinations.",
   "permissions": [
     "storage",
